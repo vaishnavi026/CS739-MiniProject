@@ -1,23 +1,25 @@
 syntax = "proto3";
 
-import "google/protobuf/empty.proto";
-import "google/protobuf/wrappers.proto";
+package KVStore;
 
-service RaftRpc {
-	rpc Get(Key) returns (Response) {}
-	rpc Set(KeyValuePair) returns (Response) {}
+service KVStore {
+    rpc Put(PutRequest) returns (PutResponse);
+    rpc Get(GetRequest) returns (GetReponse);
 }
 
-message Key {
-	string key = 1;
+message PutRequest {
+    string key = 1;
+    string value = 2;
 }
 
-message Response {
-	bool ok = 1;
-	string response = 2;
+message GetRequest {
+    string key = 1;
 }
 
-message KeyValuePair {
-	string key = 1;
-	string value = 2;
+message GetReponse {
+    string value = 1;
+}
+
+message PutResponse {
+    string message = 1;
 }
