@@ -1,6 +1,5 @@
 #include <iostream>
 #include <string>
-#include <unordered_map>
 #include "KeyValueController.pb.h"
 
 using grpc::Server;

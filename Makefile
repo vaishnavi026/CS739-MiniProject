@@ -1,43 +1,35 @@
-# Compiler and flags
-CC = g++
-CFLAGS = -Wall -g
+# Compiler
+CXX = g++
 
-# Directories
-CLIENT_DIR = client
-SERVER_DIR = src
-
-# Target binaries
-CLIENT_BIN = client_app
-SERVER_BIN = server_app
+# Compiler flags
+CXXFLAGS = -Wall -g -Iinterface/generated
 
 # Source files
-CLIENT_SRC = $(wildcard $(CLIENT_DIR)/*.cpp)
-SERVER_SRC = $(wildcard $(SERVER_DIR)/*.cpp)
+SRCS = src/server/keyValueStore.cpp src/server/sqlite_interface.cpp src/server/server.cpp
+
+# Include generated proto files
+PROTO_SRCS = interface/generated/*.cpp
 
 # Object files
-CLIENT_OBJ = $(CLIENT_SRC:.cpp=.o)
-SERVER_OBJ = $(SERVER_SRC:.cpp=.o)
+OBJS = $(SRCS:.cpp=.o) $(PROTO_SRCS:.cpp=.o)
 
-# Default target
-all: client server
+# Target executable
+TARGET = server
 
-# Build client binary
-client: $(CLIENT_OBJ)
-	$(CC) $(CFLAGS) -o $(CLIENT_BIN) $(CLIENT_OBJ)
+# Default rule
+all: $(TARGET)
 
-# Build server binary
-server: $(SERVER_OBJ)
-	$(CC) $(CFLAGS) -o $(SERVER_BIN) $(SERVER_OBJ)
+# Link the object files to create the executable
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $@ $^
 
-# Clean up object files and binaries
+# Compile source files to object files
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+# Clean up the build
 clean:
-	rm -f $(CLIENT_OBJ) $(SERVER_OBJ) $(CLIENT_BIN) $(SERVER_BIN)
+	rm -f $(OBJS) $(TARGET)
 
-# Rule for compiling client source files
-$(CLIENT_DIR)/%.o: $(CLIENT_DIR)/%.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
-
-# Rule for compiling server source files
-$(SERVER_DIR)/%.o: $(SERVER_DIR)/%.cpp
-	$(CC) $(CFLAGS) -c $< -o $@
+.PHONY: all clean
 
