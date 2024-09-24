@@ -3,10 +3,12 @@
 #include <string.h>
 #include "keyValueStore.h"
 #include <sqlite3.h>
+#include <mutex>
 
 keyValueStore::keyValueStore()
 {
     // Open the SQLite database and establish the connection
+
     int rc = sqlite3_open("kv.db", &db);
    
     if(rc) {
@@ -25,6 +27,7 @@ keyValueStore::keyValueStore()
         sqlite3_free(err_msg);
         exit(1);
     }
+    reader_count = 0;
 }
 
 
@@ -34,8 +37,23 @@ keyValueStore::~keyValueStore()
     sqlite3_close(db);
 }
 
-int get(char *key, char *value){
-    
+int keyValueStore::get(char *key, char *value){
+    {
+        std::unique_lock<std::mutex> lock(m);
+        while(is_writing == true)
+            c.wait(lock);
+        reader_count++;
+    }
+    // do the read
+    {
+        std::unique_lock<std::mutex> lock(m);
+        reader_count--;
+        if(reader_count == 0)
+            c.notify_all();
+        
+    }
+    return 0;
+
 }
 
 int main(int argc, char** argv) {
