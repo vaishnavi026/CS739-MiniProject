@@ -21,7 +21,7 @@ public:
 
     // Member functions to get and put key-value pairs
     int get(char *key, char *value);
-    int put(char *key, char *value, char *old_value);
+    char* put(char *key, char *value);
 };
 
 #endif // KEYVALUESTORE_H
