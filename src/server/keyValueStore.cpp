@@ -18,7 +18,7 @@ keyValueStore::keyValueStore()
 
     // Create a kv table in the database
     tablename = "kv_store";
-    const char *sql = "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY KEY, value INTEGER);";
+    const char *sql = "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY KEY, value TEXT);";
     char *err_msg = nullptr;
 
     rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
