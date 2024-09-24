@@ -1,5 +1,6 @@
 #include "KeyValueController.grpc.pb.h"
 #include "KeyValueController.pb.h"
+#include "keyValueStore.h"
 #include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <string>
@@ -16,7 +17,7 @@ using kvstore::PutResponse;
 
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
-  KeyValueStore kvStore;
+  keyValueStore kvStore;
 public:
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
