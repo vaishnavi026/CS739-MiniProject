@@ -1,4 +1,5 @@
 #include "KeyValueController.grpc.pb.h"
+#include "KeyValueController.pb.h"
 #include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <string>
@@ -17,11 +18,19 @@ class KVStoreServiceImpl final : public KVStore::Service {
 public:
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
+    std::cout << "Received PUT request with key, value \n";
+    std::cout << request->key() << " " << request->value() << std::endl;
+
+    response->set_message("HELLO FROM SERVER PUT");
     return Status::OK;
   }
 
   Status Get(ServerContext *context, const GetRequest *request,
              GetReponse *response) override {
+    std::cout << "Received GET request with key \n";
+    std::cout << request->key() << std::endl;
+
+    response->set_value("HELLO FROM SERVER GET");
     return Status::OK;
   }
 };
