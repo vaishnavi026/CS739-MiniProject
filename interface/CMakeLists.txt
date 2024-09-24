@@ -18,7 +18,7 @@ add_custom_command(
 
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-add_library(KeyValueController_proto
+add_library(KeyValueController_proto 
   ${KeyValueController_proto_srcs}
   ${KeyValueController_proto_hdrs})
 target_link_libraries(KeyValueController_proto
@@ -27,7 +27,7 @@ target_link_libraries(KeyValueController_proto
   ${_GRPC_GRPCPP}
   ${_PROTOBUF_LIBPROTOBUF})
 
-add_library(KeyValueController_grpc
+add_library(KeyValueController_grpc 
   ${KeyValueController_grpc_srcs}
   ${KeyValueController_grpc_hdrs})
 target_link_libraries(KeyValueController_grpc
@@ -35,5 +35,6 @@ target_link_libraries(KeyValueController_grpc
   ${_REFLECTION}
   ${_GRPC_GRPCPP}
   ${_PROTOBUF_LIBPROTOBUF})
+
 
 

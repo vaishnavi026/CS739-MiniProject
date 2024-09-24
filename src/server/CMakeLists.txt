@@ -1,3 +1,5 @@
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../interface)
+
 add_executable(server server.cpp)
     target_link_libraries(server
         KeyValueController_proto
@@ -22,11 +24,4 @@ add_executable(sqlite_interface sqlite_interface.cpp)
         ${_REFLECTION}
         ${_GRPC_GRPCPP})
 
-add_executable(keyValueStore_h keyValueStore.h)
-    target_link_libraries(keyValueStore_h
-        KeyValueController_proto
-        KeyValueController_grpc
-        ${_PROTOBUF_LIBPROTOBUF}
-        ${_REFLECTION}
-        ${_GRPC_GRPCPP})
 

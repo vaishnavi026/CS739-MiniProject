@@ -2,7 +2,10 @@
 CXX = g++
 
 # Compiler flags
-CXXFLAGS = -Wall -g -Iinterface/generated
+CXXFLAGS = -Wall -g -Iinterface/generated -I/Users/manum/.local/include -pthread `pkg-config --cflags protobuf grpc++ grpc`
+
+#Linker flags 
+LDFLAGS = `pkg-config --libs protobuf grpc++ grpc` -labsl_check -labsl_flags -labsl_flags_parse -labsl_log
 
 # Source files
 SRCS = src/server/keyValueStore.cpp src/server/sqlite_interface.cpp src/server/server.cpp
@@ -21,7 +24,7 @@ all: $(TARGET)
 
 # Link the object files to create the executable
 $(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LDFLAGS)
 
 # Compile source files to object files
 %.o: %.cpp
