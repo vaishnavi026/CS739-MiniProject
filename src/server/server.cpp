@@ -15,11 +15,15 @@ using kvstore::PutRequest;
 using kvstore::PutResponse;
 
 class KVStoreServiceImpl final : public KVStore::Service {
+private:
+  KeyValueStore kvStore;
 public:
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
     std::cout << "Received PUT request with key, value \n";
     std::cout << request->key() << " " << request->value() << std::endl;
+
+    // int response = kvStore.put(request->key().c_str(), request->value().c_str());
 
     response->set_message("HELLO FROM SERVER PUT");
     return Status::OK;
@@ -29,6 +33,12 @@ public:
              GetReponse *response) override {
     std::cout << "Received GET request with key \n";
     std::cout << request->key() << std::endl;
+      
+    // char value[256];  
+    // if (kvStore.get(request->key().c_str(), value) == 0) {
+    //     response->set_value(value);
+    // } else {
+    //     response->set_value("Key not found");  
 
     response->set_value("HELLO FROM SERVER GET");
     return Status::OK;
