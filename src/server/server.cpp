@@ -23,7 +23,8 @@ public:
     std::cout << "Received PUT request with key, value \n";
     std::cout << request->key() << " " << request->value() << std::endl;
 
-    // int response = kvStore.put(request->key().c_str(), request->value().c_str());
+    // char response = char value[256]
+    // response = kvStore.put(request->key().c_str(), request->value().c_str());
 
     response->set_message("HELLO FROM SERVER PUT");
     return Status::OK;
