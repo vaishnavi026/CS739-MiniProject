@@ -1,18 +1,20 @@
 #include <iostream>
 #include <string>
-#include "interface/KeyValueController.pb.h"
+#include <grpcpp/grpcpp.h>
+#include "KeyValueController.grpc.pb.h"
+
 
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
-using KVStore::KVStore;
+using KVStore::kvStore;
 using KVStore::PutRequest;
 using KVStore::PutResponse;
 using KVStore::GetRequest;
 using KVStore::GetReponse;
 
-class KVStoreServiceImpl final : public KVStore::Service {
+class KVStoreServiceImpl final : public kvStore::Service {
 public:
     Status Put(ServerContext* context, const PutRequest* request, PutResponse* response) override {
         return Status::OK;
