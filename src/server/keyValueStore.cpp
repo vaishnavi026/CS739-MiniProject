@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "keyValueStore.h"
+#include <sqlite3.h>
 
 keyValueStore::keyValueStore()
 {
@@ -35,4 +36,8 @@ keyValueStore::~keyValueStore()
 
 int get(char *key, char *value){
     
+}
+
+int main(int argc, char** argv) {
+    return 0;
 }
