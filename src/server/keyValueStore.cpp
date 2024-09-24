@@ -38,21 +38,25 @@ keyValueStore::~keyValueStore()
 }
 
 int keyValueStore::read(char *key, char *value){
-    {
-        std::unique_lock<std::mutex> lock(read_count_mutex);
-        reader_count++;
-        if(reader_count == 1)
-            resource_mutex.lock();
-    }
-    // do the read
-    {
-        std::unique_lock<std::mutex> lock(read_count_mutex);
-        reader_count--;
-        if(reader_count == 0)
-            resource_mutex.unlock();
+    // {
+    //     std::unique_lock<std::mutex> lock(read_count_mutex);
+    //     reader_count++;
+    //     if(reader_count == 1)
+    //         resource_mutex.lock();
+    // }
+    // // do the read
+    // {
+    //     std::unique_lock<std::mutex> lock(read_count_mutex);
+    //     reader_count--;
+    //     if(reader_count == 0)
+    //         resource_mutex.unlock();
         
-    }
-    return 0;
+    // }
+    // return 0;
+    
+    resource_mutex.lock();
+    //do the writing
+    resource_mutex.unlock();
 
 }
 
