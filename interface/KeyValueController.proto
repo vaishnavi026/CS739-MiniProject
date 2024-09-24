@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package KVStore;
+package kvstore;
 
-service kvStore {
+service KVStore {
     rpc Put(PutRequest) returns (PutResponse);
     rpc Get(GetRequest) returns (GetReponse);
 }
