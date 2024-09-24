@@ -8,10 +8,9 @@ class keyValueStore
 private:
     sqlite3 *db;        // Database handle
     char* tablename;    // Name of the table in DB (Storing key values persistently)
-    std::mutex m;
-    std::condition_variable c;
+    std::mutex resource_mutex;
+    std::mutex read_count_mutex;
     int reader_count = 0;
-    bool is_writing = false;
 
 
 public:
@@ -20,8 +19,8 @@ public:
     ~keyValueStore();
 
     // Member functions to get and put key-value pairs
-    int get(char *key, char *value);
-    char* put(char *key, char *value);
+    int read(char *key, char *value);
+    char* write(char *key, char *value);
 };
 
 #endif // KEYVALUESTORE_H

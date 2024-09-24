@@ -37,22 +37,29 @@ keyValueStore::~keyValueStore()
     sqlite3_close(db);
 }
 
-int keyValueStore::get(char *key, char *value){
+int keyValueStore::read(char *key, char *value){
     {
-        std::unique_lock<std::mutex> lock(m);
-        while(is_writing == true)
-            c.wait(lock);
+        std::unique_lock<std::mutex> lock(read_count_mutex);
         reader_count++;
+        if(reader_count == 1)
+            resource_mutex.lock();
     }
     // do the read
     {
-        std::unique_lock<std::mutex> lock(m);
+        std::unique_lock<std::mutex> lock(read_count_mutex);
         reader_count--;
         if(reader_count == 0)
-            c.notify_all();
+            resource_mutex.unlock();
         
     }
     return 0;
+
+}
+
+char* keyValueStore::write(char *key, char *value){
+    resource_mutex.lock();
+    //do the writing
+    resource_mutex.unlock();
 
 }
 

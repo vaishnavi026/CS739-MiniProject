@@ -25,7 +25,7 @@ public:
     std::cout << request->key() << " " << request->value() << std::endl;
 
     // char response[256]
-    // response = kvStore.put(request->key().c_str(), request->value().c_str());
+    // response = kvStore.write(request->key().c_str(), request->value().c_str());
 
     response->set_message("HELLO FROM SERVER PUT");
     return Status::OK;
@@ -37,7 +37,7 @@ public:
     std::cout << request->key() << std::endl;
       
     // char value[256];  
-    // if (kvStore.get(request->key().c_str(), value) == 0) {
+    // if (kvStore.read(request->key().c_str(), value) == 0) {
     //     response->set_value(value);
     // } else {
     //     response->set_value("Key not found");  
