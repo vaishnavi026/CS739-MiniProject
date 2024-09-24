@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#include "KeyValueController.pb.h"
+#include "interface/KeyValueController.pb.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;

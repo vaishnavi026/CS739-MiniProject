@@ -25,6 +25,8 @@ else()
     set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
 endif()
 
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
 add_subdirectory(client)
 add_subdirectory(interface)
 add_subdirectory(src/server)
