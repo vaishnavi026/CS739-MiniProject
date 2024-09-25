@@ -66,8 +66,7 @@ public:
   }
 };
 
-void RunServer() {
-  std::string server_address("0.0.0.0:50051");
+void RunServer(std::string &server_address) {
   KVStoreServiceImpl service;
 
   ServerBuilder builder;
@@ -75,10 +74,20 @@ void RunServer() {
   builder.RegisterService(&service);
   std::unique_ptr<Server> server(builder.BuildAndStart());
 
+  if (!server) {
+    std::cerr << "Failed to start server on " << server_address << std::endl;
+    exit(1);
+  }
+  std::cout << "Server started at " << server_address << std::endl;
   server->Wait();
 }
 
 int main(int argc, char **argv) {
-  RunServer();
+  std::string server_address("0.0.0.0:50051");
+  if (argc > 1) {
+    server_address = argv[1];
+  }
+
+  RunServer(server_address);
   return 0;
 }
