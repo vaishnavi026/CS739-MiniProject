@@ -25,11 +25,12 @@ public:
     std::cout << "Received PUT request with key, value \n";
     std::cout << request->key() << " " << request->value() << std::endl;
 
+    std::string old_value;
     int response_write;
     // response = kvStore.write(request->key().c_str(),
     // request->value().c_str());
     response_write = kvStore.write((char *)request->key().c_str(),
-                                   (char *)request->value().c_str());
+                                   (char *)request->value().c_str(), old_value);
     std::cout << response_write << "\n";
 
     response->set_message("HELLO FROM SERVER PUT");
@@ -41,7 +42,7 @@ public:
     std::cout << "Received GET request with key \n";
     std::cout << request->key() << std::endl;
 
-    char *value;
+    std::string value;
     int response_read;
     // if (kvStore.read(request->key().c_str(), value) == 0) {
     //     response->set_value(value);
@@ -51,8 +52,13 @@ public:
     response_read = kvStore.read((char *)request->key().c_str(), value);
     std::cout << response_read << "\n";
 
-    response->set_value("HELLO FROM SERVER GET");
-    return Status::OK;
+    if (response_read == 0) {
+      response->set_value(value);
+      return Status::OK;
+    } else if (response_read == 1) {
+      return grpc::Status(grpc::StatusCode::NOT_FOUND, "");
+    }
+    return grpc::Status(grpc::StatusCode::ABORTED, "");
   }
 };
 

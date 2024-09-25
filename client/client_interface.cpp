@@ -58,6 +58,8 @@ int kv739_get(char *key, char *value) {
   if (status.ok()) {
     strcpy(value, response.value().c_str());
     return 0;
+  } else if (status.error_code() == grpc::StatusCode::NOT_FOUND) {
+    return 1;
   } else {
     std::cerr << "Server Get failed: " << status.error_message() << "\n";
     return -1;
@@ -107,6 +109,15 @@ int main(int argc, char **argv) {
   int get_result = kv739_get(key, get_value);
   if (get_result == 0) {
     std::cout << "Get response " << get_value << "\n";
+  }
+
+  char key2[] = "RANDOM";
+  char get_value2[2049] = {0};
+  get_result = kv739_get(key2, get_value2);
+  if (get_result == 0) {
+    std::cout << "Get response " << get_value2 << "\n";
+  } else if (get_result == 1) {
+    std::cout << "Key Not Found!\n";
   }
 
   if (kv739_shutdown() != 0) {

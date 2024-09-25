@@ -17,8 +17,8 @@ public:
   ~keyValueStore();
 
   // Member functions to get and put key-value pairs
-  int read(char *key, char *value);
-  int write(char *key, char *value);
+  int read(char *key, std::string &value);
+  int write(char *key, char *value, std::string &old_value);
 };
 
 #endif // KEYVALUESTORE_H

@@ -37,7 +37,7 @@ keyValueStore::~keyValueStore() {
   sqlite3_close(db);
 }
 
-int keyValueStore::read(char *key, char *value) {
+int keyValueStore::read(char *key, std::string &value) {
   // {
   //     std::unique_lock<std::mutex> lock(read_count_mutex);
   //     reader_count++;
@@ -72,11 +72,13 @@ int keyValueStore::read(char *key, char *value) {
   sqlite_rc = sqlite3_step(Stmt);
 
   if (sqlite_rc == SQLITE_ROW) {
-    value = (char *)sqlite3_column_text(Stmt, 0);
-    if (value)
+    char *column = (char *)sqlite3_column_text(Stmt, 0);
+    if (column) {
+      value = column;
       rc = 0;
-    else
+    } else {
       rc = 1;
+    }
   } else if (sqlite_rc == SQLITE_DONE) {
     rc = 1;
   } else {
@@ -92,7 +94,7 @@ int keyValueStore::read(char *key, char *value) {
   return rc;
 }
 
-int keyValueStore::write(char *key, char *value) {
+int keyValueStore::write(char *key, char *value, std::string &old_value) {
   resource_mutex.lock();
 
   int rc;
