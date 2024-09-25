@@ -81,9 +81,11 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   Status status = kvstore_stub->Put(&context, request, &response);
 
-  if (status.ok()) {
-    strcpy(old_value, response.message().c_str());
+  if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
+    strcpy(old_value, status.error_message().c_str());
     return 0;
+  } else if (status.ok()) {
+    return 1;
   } else {
     std::cerr << "Server Put failed: " << status.error_message() << "\n";
     return -1;
@@ -96,27 +98,61 @@ int main(int argc, char **argv) {
     return -1;
   }
 
+  // Expected outputs: With Fresh DB
+  // Key Not Found!
+  // Put Success, no old value
+  // Put Success, old value Distributed Systems, MIKE SWIFT
+  // Key Found, Value is Distributed Systems, MIKE SWIFT
+  // Put Success, old value Distributed Systems, MIKE SWIFT
+  // Key Found, Value is Distributed Systems, MIKE SWIFT, FALL 2024
+
   char key[] = "CS739";
   char value[] = "Distributed Systems, MIKE SWIFT";
-  char old_value[2049] = {0};
-
-  int put_result = kv739_put(key, value, old_value);
-  if (put_result == 0) {
-    std::cout << "Put response " << old_value << "\n";
-  }
+  char update_value[] = "Distributed Systems, MIKE SWIFT, FALL 2024";
 
   char get_value[2049] = {0};
   int get_result = kv739_get(key, get_value);
   if (get_result == 0) {
-    std::cout << "Get response " << get_value << "\n";
+    std::cout << "Key Found, Value is " << get_value << "\n";
+  } else if (get_result == 1) {
+    std::cout << "Key Not Found!\n";
   }
 
-  char key2[] = "RANDOM";
+  char old_value[2049] = {0};
+  int put_result = kv739_put(key, value, old_value);
+  if (put_result == 1) {
+    std::cout << "Put Success, no old value\n";
+  } else if (put_result == 0) {
+    std::cout << "Put Success, old value " << old_value << "\n";
+  }
+
+  int put_result2 = kv739_put(key, value, old_value);
+  if (put_result2 == 1) {
+    std::cout << "Put Success, no old value\n";
+  } else if (put_result2 == 0) {
+    std::cout << "Put Success, old value " << old_value << "\n";
+  }
+
+  int get_result2 = kv739_get(key, get_value);
+  if (get_result2 == 0) {
+    std::cout << "Key Found, Value is " << get_value << "\n";
+  } else if (get_result2 == 1) {
+    std::cout << "Key Not Found!\n";
+  }
+
+  char old_value2[2049] = {0};
+  int put_result3 = kv739_put(key, update_value, old_value2);
+  if (put_result3 == 1) {
+    std::cout << "Put Success, no old value\n";
+  } else if (put_result3 == 0) {
+    std::cout << "Put Success, old value " << old_value2 << "\n";
+  }
+
   char get_value2[2049] = {0};
-  get_result = kv739_get(key2, get_value2);
-  if (get_result == 0) {
-    std::cout << "Get response " << get_value2 << "\n";
-  } else if (get_result == 1) {
+  int get_result3 = kv739_get(key, get_value2);
+  if (get_result3 == 0) {
+    std::cout << "Key Found, Value is " << get_value2 << "\n";
+  } else if (get_result3 == 1) {
     std::cout << "Key Not Found!\n";
   }
 

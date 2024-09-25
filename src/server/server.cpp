@@ -33,8 +33,12 @@ public:
                                    (char *)request->value().c_str(), old_value);
     std::cout << response_write << "\n";
 
-    response->set_message("HELLO FROM SERVER PUT");
-    return Status::OK;
+    if (response_write == 0) {
+      return grpc::Status(grpc::StatusCode::ALREADY_EXISTS, old_value);
+    } else if (response_write == 1) {
+      return Status::OK;
+    }
+    return grpc::Status(grpc::StatusCode::ABORTED, "");
   }
 
   Status Get(ServerContext *context, const GetRequest *request,

@@ -131,11 +131,9 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
     rc = -1;
   }
 
-  sqlite3_finalize(read_Stmt);
-
   // Deciding whether to insert the key or update the key
   if (rc == 1) {
-    write_query = "INSERT INTO kv_store (key, value) VALUES (?, ?);";
+    write_query = "INSERT INTO kv_store (value, key) VALUES (?, ?);";
   } else {
     write_query = "UPDATE kv_store SET value = ? WHERE key = ?;";
   }
@@ -143,17 +141,18 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
   if (rc == -1) {
     // Not writing if the read has failed
   } else if (rc == 0 && strcmp(value, read_value) == 0) {
+    old_value = read_value;
     // Skipping write because read value same as the value to be written
   } else {
+    old_value = read_value;
     sqlite_rc = sqlite3_prepare_v2(db, write_query, -1, &write_Stmt, nullptr);
-
     if (sqlite_rc != SQLITE_OK) {
       fprintf(stderr, "Write in Write query prepare error : %s\n",
               sqlite3_errmsg(db));
     }
 
-    sqlite3_bind_text(write_Stmt, 1, key, -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(write_Stmt, 2, value, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(write_Stmt, 1, value, -1, SQLITE_TRANSIENT);
+    sqlite3_bind_text(write_Stmt, 2, key, -1, SQLITE_TRANSIENT);
 
     sqlite_rc = sqlite3_step(write_Stmt);
 
@@ -162,11 +161,11 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
               "Write in Write Query : Failed to read from the database : %s\n",
               sqlite3_errmsg(db));
     }
-
     sqlite3_finalize(write_Stmt);
   }
 
-  resource_mutex.unlock();
+  sqlite3_finalize(read_Stmt);
 
+  resource_mutex.unlock();
   return rc;
 }
