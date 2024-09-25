@@ -5,7 +5,6 @@
 #include <cstring>
 #include <ctime>
 #include <iostream>
-#include <omp.h>
 #include <vector>
 
 using std::chrono::duration;
@@ -24,10 +23,9 @@ void client(char *server_name, perf_metrics *metrics, int num_requests) {
   assert(kv739_init(server_name) == 0);
   srand(time(NULL));
 
-  // #pragma omp parallel for
   for (int i = 0; i < num_requests; i++) {
     std::string key = "key_" + std::to_string(i % 10);
-    std::string new_value = "value_" + std::to_string(i % 10);
+    std::string new_value = "value_" + std::to_string(i);
 
     if (rand() % 2 == 0) {
       high_resolution_clock::time_point start_time =

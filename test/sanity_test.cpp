@@ -15,6 +15,14 @@ int main(int argc, char **argv) {
   // Put Success, old value Distributed Systems, MIKE SWIFT
   // Key Found, Value is Distributed Systems, MIKE SWIFT, FALL 2024
 
+  // Expected outputs: With Existing DB
+  // Key Found, Value is Distributed Systems, MIKE SWIFT, FALL 2024
+  // Put Success, old value Distributed Systems, MIKE SWIFT, FALL 2024
+  // Put Success, old value Distributed Systems, MIKE SWIFT
+  // Key Found, Value is Distributed Systems, MIKE SWIFT
+  // Put Success, old value Distributed Systems, MIKE SWIFT
+  // Key Found, Value is Distributed Systems, MIKE SWIFT, FALL 2024
+
   char key[] = "CS739";
   char value[] = "Distributed Systems, MIKE SWIFT";
   char update_value[] = "Distributed Systems, MIKE SWIFT, FALL 2024";
