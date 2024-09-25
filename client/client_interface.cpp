@@ -20,10 +20,17 @@ std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
 
 int kv739_init(char *server_name) {
   std::string server_address(server_name);
-  kvstore_stub = kvstore::KVStore::NewStub(
-      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials()));
+  auto channel =
+      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  kvstore_stub = kvstore::KVStore::NewStub(channel);
   if (!kvstore_stub) {
     std::cerr << "Failed to create gRPC stub\n";
+    return -1;
+  }
+  grpc_connectivity_state state = channel->GetState(true);
+  if (state == GRPC_CHANNEL_SHUTDOWN ||
+      state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+    std::cerr << "Failed to establish gRPC channel connection\n";
     return -1;
   }
   return 0;
@@ -35,6 +42,11 @@ int kv739_shutdown(void) {
 }
 
 int kv739_get(char *key, char *value) {
+  if (!kvstore_stub) {
+    std::cerr << "Client not initialized, call kv739_init\n";
+    return -1;
+  }
+
   GetRequest request;
   request.set_key(key);
 
@@ -53,6 +65,11 @@ int kv739_get(char *key, char *value) {
 }
 
 int kv739_put(char *key, char *value, char *old_value) {
+  if (!kvstore_stub) {
+    std::cerr << "Client not initialized, call kv739_init\n";
+    return -1;
+  }
+
   PutRequest request;
   request.set_key(key);
   request.set_value(value);
