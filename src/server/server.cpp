@@ -24,8 +24,10 @@ public:
     std::cout << "Received PUT request with key, value \n";
     std::cout << request->key() << " " << request->value() << std::endl;
 
-    // char response[256]
+    int response_write;
     // response = kvStore.write(request->key().c_str(), request->value().c_str());
+    response_write = kvStore.write((char*)request->key().c_str(), (char*)request->value().c_str());
+    std::cout << response_write << "\n";
 
     response->set_message("HELLO FROM SERVER PUT");
     return Status::OK;
@@ -36,11 +38,15 @@ public:
     std::cout << "Received GET request with key \n";
     std::cout << request->key() << std::endl;
       
-    // char value[256];  
+    char *value;  
+    int response_read;
     // if (kvStore.read(request->key().c_str(), value) == 0) {
     //     response->set_value(value);
     // } else {
     //     response->set_value("Key not found");  
+
+    response_read = kvStore.read((char*)request->key().c_str(), value);
+    std::cout << response_read << "\n";
 
     response->set_value("HELLO FROM SERVER GET");
     return Status::OK;
