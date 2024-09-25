@@ -8,7 +8,7 @@ CXXFLAGS = -Wall -g -Iinterface/generated -I/Users/manum/.local/include -pthread
 LDFLAGS = `pkg-config --libs protobuf grpc++ grpc` -labsl_check -labsl_flags -labsl_flags_parse -labsl_log
 
 # Source files
-SRCS = src/server/keyValueStore.cpp src/server/sqlite_interface.cpp src/server/server.cpp
+SRCS = src/server/keyValueStore.cpp src/server/server.cpp
 
 # Include generated proto files
 PROTO_SRCS = interface/generated/*.cpp
