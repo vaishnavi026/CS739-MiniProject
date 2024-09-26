@@ -5,6 +5,7 @@
 #include <cstring>
 #include <ctime>
 #include <iostream>
+#include <random>
 #include <vector>
 
 using std::chrono::duration;
@@ -15,17 +16,31 @@ struct perf_metrics {
   std::atomic<int> successful_requests{0};
   std::atomic<long long> total_latency_ns{0};
 };
+static const std::string characters =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+std::string generate_random_string(size_t length, std::mt19937 &gen) {
+  std::uniform_int_distribution<> distrib(0, characters.size() - 1);
+  std::string random_string;
+  random_string.reserve(length);
+  for (size_t i = 0; i < length; ++i) {
+    random_string += characters[distrib(gen)];
+  }
+  return random_string;
+}
 
-void client(char *server_name, perf_metrics *metrics, int num_requests) {
+void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
   char old_value[2049];
   char value[2049];
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> value_len_distrib(1, 2048);
 
   assert(kv739_init(server_name) == 0);
   srand(time(NULL));
 
   for (int i = 0; i < num_requests; i++) {
-    std::string key = "key_" + std::to_string(i % 10);
-    std::string new_value = "value_" + std::to_string(i);
+    std::string key = "key_" + std::to_string(rand() % 1024);
+    std::string new_value = generate_random_string(value_len_distrib(gen), gen);
 
     if (rand() % 2 == 0) {
       high_resolution_clock::time_point start_time =
@@ -69,21 +84,11 @@ void client(char *server_name, perf_metrics *metrics, int num_requests) {
 }
 
 void run_performance_test(char *server_name, int num_requests) {
-
   perf_metrics metrics;
 
-  high_resolution_clock::time_point start_time = high_resolution_clock::now();
+  hot_key_reqs(server_name, &metrics, num_requests);
 
-  client(server_name, &metrics, num_requests);
-
-  high_resolution_clock::time_point end_time = high_resolution_clock::now();
-
-  duration<long long, std::nano> total_duration_nano =
-      std::chrono::duration_cast<duration<long long, std::nano>>(end_time -
-                                                                 start_time);
-  double test_duration_sec = total_duration_nano.count() / 1e9;
-
-  double throughput = metrics.total_requests / test_duration_sec;
+  double throughput = metrics.total_requests / (metrics.total_latency_ns / 1e9);
   double average_latency_ms =
       (metrics.total_latency_ns / 1e6) / metrics.total_requests;
 
@@ -92,8 +97,6 @@ void run_performance_test(char *server_name, int num_requests) {
             << std::endl;
   std::cout << "Failed requests: "
             << metrics.total_requests - metrics.successful_requests
-            << std::endl;
-  std::cout << "Total duration: " << test_duration_sec << " seconds"
             << std::endl;
   std::cout << "Throughput: " << throughput << " rps" << std::endl;
   std::cout << "Average latency: " << average_latency_ms << " ms" << std::endl;
