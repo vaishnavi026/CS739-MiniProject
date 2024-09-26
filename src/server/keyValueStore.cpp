@@ -38,24 +38,12 @@ keyValueStore::~keyValueStore() {
 }
 
 int keyValueStore::read(char *key, std::string &value) {
-  // {
-  //     std::unique_lock<std::mutex> lock(read_count_mutex);
-  //     reader_count++;
-  //     if(reader_count == 1)
-  //         resource_mutex.lock();
-  // }
-  // // do the read
-  // {
-  //     std::unique_lock<std::mutex> lock(read_count_mutex);
-  //     reader_count--;
-  //     if(reader_count == 0)
-  //         resource_mutex.unlock();
-
-  // }
-  // return 0;
-
-  resource_mutex.lock();
-
+  {
+      std::unique_lock<std::mutex> lock(read_count_mutex);
+      reader_count++;
+      if(reader_count == 1)
+          resource_mutex.lock();
+  }
   int rc;
   const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
   sqlite3_stmt *Stmt;
@@ -89,7 +77,13 @@ int keyValueStore::read(char *key, std::string &value) {
 
   sqlite3_finalize(Stmt);
 
-  resource_mutex.unlock();
+  {
+      std::unique_lock<std::mutex> lock(read_count_mutex);
+      reader_count--;
+      if(reader_count == 0)
+          resource_mutex.unlock();
+
+  }
 
   return rc;
 }
