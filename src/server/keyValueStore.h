@@ -3,11 +3,14 @@
 
 #include <mutex>
 #include <sqlite3.h>
+#include <unordered_map>
+
 class keyValueStore {
 private:
   sqlite3 *db;     // Database handle
   char *tablename; // Name of the table in DB (Storing key values persistently)
   std::mutex resource_mutex;
+  std::unordered_map<std::string, std::string> kv_map;
   // std::mutex read_count_mutex;
   // int reader_count = 0;
 

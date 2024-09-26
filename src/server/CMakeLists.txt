@@ -5,8 +5,8 @@ include_directories(${SQLite3_INCLUDE_DIRS})
 
 add_library(keyValueStoreLib keyValueStore.cpp)
 
-add_executable(server server.cpp)
-    target_link_libraries(server
+add_executable(serverOpt server.cpp)
+    target_link_libraries(serverOpt
 	keyValueStoreLib
         KeyValueController_proto
         KeyValueController_grpc

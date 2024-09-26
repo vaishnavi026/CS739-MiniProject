@@ -27,11 +27,10 @@ public:
 
     std::string old_value;
     int response_write;
-    // response = kvStore.write(request->key().c_str(),
-    // request->value().c_str());
+
     response_write = kvStore.write((char *)request->key().c_str(),
                                    (char *)request->value().c_str(), old_value);
-    std::cout << response_write << "\n";
+    // std::cout << response_write << "\n";
 
     if (response_write == 0) {
       return grpc::Status(grpc::StatusCode::ALREADY_EXISTS, old_value);
@@ -54,7 +53,7 @@ public:
     //     response->set_value("Key not found");
 
     response_read = kvStore.read((char *)request->key().c_str(), value);
-    std::cout << response_read << "\n";
+    // std::cout << response_read << "\n";
 
     if (response_read == 0) {
       response->set_value(value);
