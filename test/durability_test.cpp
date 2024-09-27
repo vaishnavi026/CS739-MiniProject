@@ -10,13 +10,15 @@ int main(int argc, char **argv) {
   }
 
   char key[] = "CS739";
-  char value[] = "Durability Test Value";
+  char value[] = "DurabilityTestValue";
   char get_value[2049] = {0};
 
   //Write a value to the key-value store
   std::cout << "Test 1: Writing a value before crash\n";
   char old_value[2049] = {0};
   int put_result = kv739_put(key, value, old_value);
+  std::cout<< put_result;
+
   if (put_result == 0) {
     std::cout << "PASS: Value written successfully.\n";
   } else {
