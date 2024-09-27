@@ -9,8 +9,10 @@ int main(int argc, char **argv) {
   }
 
   char key[] = "CS739";
-  char value[] = "Distributed Systems, MIKE SWIFT";
-  char update_value[] = "Distributed Systems, MIKE SWIFT, FALL 2024";
+  char illegalkey[] = "CS739[]";
+  char value[] = "DistributedSystemsMIKESWIFT";
+  char illegalvalue[] = "DistributedSystemsMIKESWIFT[]";
+  char update_value[] = "DistributedSystemsMIKESWIFTFALL2024";
 
   //Case 1: Reading value not present 
   std::cout << "Test 1 : Reading value not present\n"; 
@@ -23,7 +25,7 @@ int main(int argc, char **argv) {
   }else if(get_result == 1){
     std::cout << "PASS : Reading value not present : Expected response 1, observed 1\n";
   }else if(get_result == -1){
-    std::cout << "FAIL : DB failed not expected\n";
+    std::cout << "FAIL : DB Failure or Problem in Key or Client did not receive packet due to network issues\n";
   }else{
     std::cout << "FAIL : Unknown return code\n";
   }
@@ -38,7 +40,7 @@ int main(int argc, char **argv) {
   }else if (put_result == 1) {
     std::cout << "PASS : Writing old value not present : Expected response 1, observed 1\n";
   }else if (put_result == -1){
-    std::cout << "FAIL : DB failed not expected\n";
+    std::cout << "FAIL : DB Failure or Problem in Key/Value or Client did not receive packet due to network issues\n";
   }else{
     std::cout << "FAIL : Unknown return code\n";
   }
@@ -56,7 +58,7 @@ int main(int argc, char **argv) {
   }else if(get_result == 1){
     std::cout << "FAIL : Reading value present : Expected response 0, observed 1\n";
   }else if(get_result == -1){
-    std::cout << "FAIL : DB failed not expected\n";
+    std::cout << "FAIL : DB Failure or Problem in Key or Client did not receive packet due to network issues\n";
   }else{
     std::cout << "FAIL : Unknown return code\n";
   }
@@ -74,7 +76,7 @@ int main(int argc, char **argv) {
   }else if (put_result == 1) {
     std::cout << "FAIL : Writing with old value present : Expected response 0, observed 1\n";
   }else if (put_result == -1){
-    std::cout << "FAIL : DB failed not expected\n";
+    std::cout << "FAIL : DB Failure or Problem in Key/Value or Client did not receive packet due to network issues\n";
   }else{
     std::cout << "FAIL : Unknown return code\n";
   }
@@ -92,7 +94,69 @@ int main(int argc, char **argv) {
   }else if(get_result == 1){
     std::cout << "FAIL : Reading value present : Expected response 0, observed 1\n";
   }else if(get_result == -1){
-    std::cout << "FAIL : DB failed not expected\n";
+    std::cout << "FAIL : DB Failure or Problem in Key or Client did not receive packet due to network issues\n";
+  }else{
+    std::cout << "FAIL : Unknown return code\n";
+  }
+
+  //Case 6 : Problem in Key only(Not meeting the required format) during get
+  std::cout << "Test 6 : Problem in Read : Key not meeting the required format during get\n";
+  char get_value4[2049] = {0};
+  get_result = kv739_get(illegalkey, get_value4);
+  if (get_result == 0) {
+    std::cout << "FAIL : Reading value not present : Expected response 1, observed 0\n";
+  }else if(get_result == 1){
+    std::cout << "FAIL : Reading value not present : Expected response 1, observed 1\n";
+  }else if(get_result == -1){
+    std::cout << "PASS : DB Failure or Problem in Key or Client did not receive packet due to network issues\n";
+  }else{
+    std::cout << "FAIL : Unknown return code\n";
+  }
+
+  //Case 7 : Problem in Key only(Not meeting the required format) during put
+  char old_value3[2049] = {0};
+  std::cout << "Test 7 : Problem in Key only(Not meeting the required format) during put\n";
+
+  put_result = kv739_put(illegalkey, value, old_value3);
+  
+  if (put_result == 0) {
+    std::cout << "FAIL : Writing old value not present : Expected response 1, observed 0\n";
+  }else if (put_result == 1) {
+    std::cout << "FAIL : Writing old value not present : Expected response 1, observed 1\n";
+  }else if (put_result == -1){
+    std::cout << "PASS : DB Failure or Problem in Key/Value or Client did not receive packet due to network issues\n";
+  }else{
+    std::cout << "FAIL : Unknown return code\n";
+  }
+
+  //Case 8 : Problem in Value only(Not meeting the required format) during put
+  std::cout << "Test 8 : Problem in Value only(Not meeting the required format) during put\n";
+  char old_value4[2049] = {0};
+  
+  put_result = kv739_put(key, illegalvalue, old_value4);
+  std::cout << "Test 7 : Problem in Key only(Not meeting the required format) during put\n";
+  if (put_result == 0) {
+    std::cout << "FAIL : Writing old value not present : Expected response 1, observed 0\n";
+  }else if (put_result == 1) {
+    std::cout << "FAIL : Writing old value not present : Expected response 1, observed 1\n";
+  }else if (put_result == -1){
+    std::cout << "PASS : DB Failure or Problem in Key/Value or Client did not receive packet due to network issues\n";
+  }else{
+    std::cout << "FAIL : Unknown return code\n";
+  }
+
+  //Case 9 : Problem in Value and Key both(Not meeting the required format) during put
+  std::cout << "Test 9 : Problem in Key and Value both(Not meeting the required format) during put\n";
+  char old_value5[2049] = {0};
+  
+  put_result = kv739_put(illegalkey, illegalvalue, old_value5);
+  std::cout << "Test 7 : Problem in Key only(Not meeting the required format) during put\n";
+  if (put_result == 0) {
+    std::cout << "FAIL : Writing old value not present : Expected response 1, observed 0\n";
+  }else if (put_result == 1) {
+    std::cout << "FAIL : Writing old value not present : Expected response 1, observed 1\n";
+  }else if (put_result == -1){
+    std::cout << "PASS : DB Failure or Problem in Key/Value or Client did not receive packet due to network issues\n";
   }else{
     std::cout << "FAIL : Unknown return code\n";
   }

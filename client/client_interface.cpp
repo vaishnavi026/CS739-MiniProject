@@ -16,6 +16,47 @@ using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 
+bool is_valid_key(char* key){
+ 
+    int len = strlen(key);
+
+    if (len == 0 || len > 128) {
+        return false;
+    }
+
+    for (int i = 0; i < len; ++i) {
+        char ch = key[i];
+        if(isalnum(ch)){
+            //Allowed case
+        }else{
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool is_valid_value(char* value){
+ 
+    int len = strlen(value);
+
+    if (len == 0 || len > 2048) {
+        std::cout << "Error w1\n";
+        return false;
+    }
+
+    for (int i = 0; i < len; ++i) {
+        char ch = value[i];
+        if(isalnum(ch)){
+            //Allowed case
+        }else{
+            return false;
+        }
+    }
+
+    return true;
+}
+
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
 
 int kv739_init(char *server_name) {
@@ -48,6 +89,12 @@ int kv739_get(char *key, char *value) {
   }
 
   GetRequest request;
+
+  if(!is_valid_key(key)){
+      std::cerr << "Key does not meet the conditions set forth" << std::endl;
+      return -1;
+  }
+
   request.set_key(key);
 
   GetReponse response;
@@ -73,23 +120,29 @@ int kv739_put(char *key, char *value, char *old_value) {
   }
 
   PutRequest request;
-  request.set_key(key);
-  request.set_value(value);
 
-  PutResponse response;
-  ClientContext context;
+  if(is_valid_key(key) && is_valid_value(value)){
+      request.set_key(key);
+      request.set_value(value);
 
-  Status status = kvstore_stub->Put(&context, request, &response);
+      PutResponse response;
+      ClientContext context;
 
-  if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
-    strcpy(old_value, status.error_message().c_str());
-    return 0;
-  } else if (status.ok()) {
-    return 1;
-  } else {
-    std::cerr << "Server Put failed: " << status.error_message() << "\n";
-    return -1;
-  }
+      Status status = kvstore_stub->Put(&context, request, &response);
+
+      if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
+        strcpy(old_value, status.error_message().c_str());
+        return 0;
+      } else if (status.ok()) {
+        return 1;
+      } else {
+        std::cerr << "Server Put failed: " << status.error_message() << "\n";
+        return -1;
+      }
+   }else{
+       std::cerr << "Key or Value does not meet the conditions set forth" << std::endl;
+       return -1;
+   }
 }
 
 int main(int argc, char **argv) {
