@@ -1,10 +1,10 @@
 #include "client_interface.h"
+#include <cstring> // For memset
 #include <iostream>
 #include <thread> // For multithreading
-#include <cstring> // For memset
 
 // Function for getting the value from the key-value store in a separate thread
-void get_value_from_store(char* key, char* result_buffer) {
+void get_value_from_store(char *key, char *result_buffer) {
   int get_result2 = kv739_get(key, result_buffer);
   if (get_result2 == 0) {
     std::cout << "Key Found, Value is " << result_buffer << "\n";

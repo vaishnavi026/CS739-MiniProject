@@ -13,11 +13,11 @@ int main(int argc, char **argv) {
   char value[] = "DurabilityTestValue";
   char get_value[2049] = {0};
 
-  //Write a value to the key-value store
+  // Write a value to the key-value store
   std::cout << "Test 1: Writing a value before crash\n";
   char old_value[2049] = {0};
   int put_result = kv739_put(key, value, old_value);
-  std::cout<< put_result;
+  std::cout << put_result;
 
   if (put_result == 0) {
     std::cout << "PASS: Value written successfully.\n";
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     return -1;
   }
 
-  sleep(5); 
+  sleep(5);
 
   // restart the server
   std::cout << "Restarting the server\n";
@@ -44,9 +44,12 @@ int main(int argc, char **argv) {
   int get_result = kv739_get(key, get_value);
   if (get_result == 0) {
     if (strcmp(value, get_value) == 0) {
-      std::cout << "PASS: Value read matches the value written before crash: " << get_value << "\n";
+      std::cout << "PASS: Value read matches the value written before crash: "
+                << get_value << "\n";
     } else {
-      std::cout << "FAIL: Value read does not match the value written before crash: Expected " << value << ", got " << get_value << "\n";
+      std::cout << "FAIL: Value read does not match the value written before "
+                   "crash: Expected "
+                << value << ", got " << get_value << "\n";
     }
   } else {
     std::cout << "FAIL: Error reading value after restart.\n";

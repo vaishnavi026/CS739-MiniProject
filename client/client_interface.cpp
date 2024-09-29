@@ -16,45 +16,44 @@ using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 
-bool is_valid_key(char* key){
- 
-    int len = strlen(key);
+bool is_valid_key(char *key) {
 
-    if (len == 0 || len > 128) {
-        return false;
+  int len = strlen(key);
+
+  if (len == 0 || len > 128) {
+    return false;
+  }
+
+  for (int i = 0; i < len; ++i) {
+    char ch = key[i];
+    if (isalnum(ch)) {
+      // Allowed case
+    } else {
+      return false;
     }
+  }
 
-    for (int i = 0; i < len; ++i) {
-        char ch = key[i];
-        if(isalnum(ch)){
-            //Allowed case
-        }else{
-            return false;
-        }
-    }
-
-    return true;
+  return true;
 }
 
-bool is_valid_value(char* value){
- 
-    int len = strlen(value);
+bool is_valid_value(char *value) {
 
-    if (len == 0 || len > 2048) {
-        std::cout << "Error w1\n";
-        return false;
+  int len = strlen(value);
+
+  if (len == 0 || len > 2048) {
+    return false;
+  }
+
+  for (int i = 0; i < len; ++i) {
+    char ch = value[i];
+    if (isalnum(ch)) {
+      // Allowed case
+    } else {
+      return false;
     }
+  }
 
-    for (int i = 0; i < len; ++i) {
-        char ch = value[i];
-        if(isalnum(ch)){
-            //Allowed case
-        }else{
-            return false;
-        }
-    }
-
-    return true;
+  return true;
 }
 
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
@@ -90,9 +89,9 @@ int kv739_get(char *key, char *value) {
 
   GetRequest request;
 
-  if(!is_valid_key(key)){
-      std::cerr << "Key does not meet the conditions set forth" << std::endl;
-      return -1;
+  if (!is_valid_key(key)) {
+    std::cerr << "Key does not meet the conditions set forth" << std::endl;
+    return -1;
   }
 
   request.set_key(key);
@@ -121,28 +120,29 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   PutRequest request;
 
-  if(is_valid_key(key) && is_valid_value(value)){
-      request.set_key(key);
-      request.set_value(value);
+  if (is_valid_key(key) && is_valid_value(value)) {
+    request.set_key(key);
+    request.set_value(value);
 
-      PutResponse response;
-      ClientContext context;
+    PutResponse response;
+    ClientContext context;
 
-      Status status = kvstore_stub->Put(&context, request, &response);
+    Status status = kvstore_stub->Put(&context, request, &response);
 
-      if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
-        strcpy(old_value, status.error_message().c_str());
-        return 0;
-      } else if (status.ok()) {
-        return 1;
-      } else {
-        std::cerr << "Server Put failed: " << status.error_message() << "\n";
-        return -1;
-      }
-   }else{
-       std::cerr << "Key or Value does not meet the conditions set forth" << std::endl;
-       return -1;
-   }
+    if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
+      strcpy(old_value, status.error_message().c_str());
+      return 0;
+    } else if (status.ok()) {
+      return 1;
+    } else {
+      std::cerr << "Server Put failed: " << status.error_message() << "\n";
+      return -1;
+    }
+  } else {
+    std::cerr << "Key or Value does not meet the conditions set forth"
+              << std::endl;
+    return -1;
+  }
 }
 
 int main(int argc, char **argv) {
