@@ -3,8 +3,13 @@
 
 int main(int argc, char **argv) {
 
-  char server_name[] = "0.0.0.0:50051";
-  if (kv739_init(server_name) != 0) {
+  std::string server_name = "0.0.0.0:50051";
+
+  if (argc > 1) {
+    server_name = argv[1];
+  }
+
+  if (kv739_init((char*)server_name.data()) != 0) {
     return -1;
   }
 
