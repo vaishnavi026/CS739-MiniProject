@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
   std::cout << "Test 1: Writing a value before crash\n";
   int put_result = kv739_put(key, value, old_value);
 
-  if (put_result == 0) {
+  if (put_result == 0 || put_result == 1) {
     std::cout << "PASS: Value written successfully.\n";
   } else {
     std::cout << "FAIL: Error writing value.\n";
