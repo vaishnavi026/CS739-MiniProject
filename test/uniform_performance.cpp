@@ -39,7 +39,7 @@ void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
   srand(time(NULL));
 
   for (int i = 0; i < num_requests; i++) {
-    std::string key = "key_" + std::to_string(rand() % 1024);
+    std::string key = "key" + std::to_string(rand() % 1024);
     std::string new_value = generate_random_string(value_len_distrib(gen), gen);
 
     if (rand() % 2 == 0) {
