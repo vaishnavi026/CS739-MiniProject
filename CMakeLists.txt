@@ -25,6 +25,10 @@ else()
     set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
 endif()
 
+if(UNIX AND NOT APPLE)
+    set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC" )
+endif()
+
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
 add_subdirectory(client)

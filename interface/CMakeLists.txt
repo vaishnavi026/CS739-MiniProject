@@ -18,23 +18,14 @@ add_custom_command(
 
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
 
-add_library(KeyValueController_proto 
+add_library(KeyValueController_proto_grpc
   ${KeyValueController_proto_srcs}
-  ${KeyValueController_proto_hdrs})
-target_link_libraries(KeyValueController_proto
-  absl::check
-  ${_REFLECTION}
-  ${_GRPC_GRPCPP}
-  ${_PROTOBUF_LIBPROTOBUF})
-
-add_library(KeyValueController_grpc 
+  ${KeyValueController_proto_hdrs}
   ${KeyValueController_grpc_srcs}
   ${KeyValueController_grpc_hdrs})
-target_link_libraries(KeyValueController_grpc
+
+target_link_libraries(KeyValueController_proto_grpc
   absl::check
   ${_REFLECTION}
   ${_GRPC_GRPCPP}
   ${_PROTOBUF_LIBPROTOBUF})
-
-
-
