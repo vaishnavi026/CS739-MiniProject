@@ -1,4 +1,4 @@
-#include "client.h"
+#include "client_interface.h"
 #include <atomic>
 #include <cassert>
 #include <chrono>
