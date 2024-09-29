@@ -46,7 +46,7 @@ int keyValueStore::read(char *key, std::string &value) {
   }
   int rc;
   const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
-  sqlite3_stmt *Stmt;
+  sqlite3_stmt *Stmt = nullptr;
 
   int sqlite_rc = sqlite3_prepare_v2(db, read_query, -1, &Stmt, nullptr);
 
@@ -95,8 +95,8 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
   const char *write_query;
   const char *read_value;
 
-  sqlite3_stmt *read_Stmt;
-  sqlite3_stmt *write_Stmt;
+  sqlite3_stmt *read_Stmt = nullptr;
+  sqlite3_stmt *write_Stmt = nullptr;
 
   int sqlite_rc = sqlite3_prepare_v2(db, read_query, -1, &read_Stmt, nullptr);
 
