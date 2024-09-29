@@ -8,7 +8,7 @@
 
 keyValueStore::keyValueStore() {
   // Open the SQLite database and establish the connection
-
+  // sqlite3_config(SQLITE_CONFIG_SERIALIZED);
   int rc = sqlite3_open("kv.db", &db);
 
   if (rc) {
