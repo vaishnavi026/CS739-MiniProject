@@ -72,8 +72,14 @@ int keyValueStore::read(char *key, std::string &value) {
 
   // }
   // return 0;
+  {
+    std::unique_lock<std::mutex> lock(read_count_mutex);
+    reader_count++;
+    if (reader_count == 1)
+      resource_mutex.lock();
+  }
 
-  resource_mutex.lock();
+  // resource_mutex.lock();
 
   int rc;
   auto iter = kv_map.find(key);
@@ -83,7 +89,13 @@ int keyValueStore::read(char *key, std::string &value) {
   } else {
     rc = 1;
   }
-  resource_mutex.unlock();
+  {
+    std::unique_lock<std::mutex> lock(read_count_mutex);
+    reader_count--;
+    if (reader_count == 0)
+      resource_mutex.unlock();
+  }
+  // resource_mutex.unlock();
   return rc;
 
   const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";

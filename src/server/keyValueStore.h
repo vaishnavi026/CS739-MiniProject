@@ -11,8 +11,8 @@ private:
   char *tablename; // Name of the table in DB (Storing key values persistently)
   std::mutex resource_mutex;
   std::unordered_map<std::string, std::string> kv_map;
-  // std::mutex read_count_mutex;
-  // int reader_count = 0;
+  std::mutex read_count_mutex;
+  int reader_count = 0;
 
 public:
   // Constructor and Destructor
