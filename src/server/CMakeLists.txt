@@ -7,9 +7,8 @@ add_library(keyValueStoreLib keyValueStore.cpp)
 
 add_executable(server server.cpp)
     target_link_libraries(server
-	keyValueStoreLib
-        KeyValueController_proto
-        KeyValueController_grpc
+	    keyValueStoreLib
+        KeyValueController_proto_grpc
         ${SQLite3_LIBRARIES}
         ${_PROTOBUF_LIBPROTOBUF}
         ${_REFLECTION}
