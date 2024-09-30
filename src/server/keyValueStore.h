@@ -1,19 +1,22 @@
 #ifndef KEYVALUESTORE_H
 #define KEYVALUESTORE_H
 
+#include "dbConnectionPool.h"
 #include <mutex>
 #include <sqlite3.h>
+
 class keyValueStore {
 private:
-  sqlite3 *db;     // Database handle
-  char *tablename; // Name of the table in DB (Storing key values persistently)
+  // char *tablename;
   std::mutex resource_mutex;
   std::mutex read_count_mutex;
   int reader_count = 0;
+  DBConnectionPool *db_pool;
+  std::string tablename;
 
 public:
   // Constructor and Destructor
-  keyValueStore();
+  keyValueStore(size_t pool_size = 8);
   ~keyValueStore();
 
   // Member functions to get and put key-value pairs

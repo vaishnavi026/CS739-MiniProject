@@ -1,4 +1,5 @@
 #include "keyValueStore.h"
+#include "dbConnectionPool.h"
 #include <iostream>
 #include <mutex>
 #include <sqlite3.h>
@@ -6,36 +7,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-keyValueStore::keyValueStore() {
-  // Open the SQLite database and establish the connection
-  // sqlite3_config(SQLITE_CONFIG_SERIALIZED);
-  int rc = sqlite3_open("kv.db", &db);
-
-  if (rc) {
-    fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-    exit(1);
-  }
-
+keyValueStore::keyValueStore(size_t pool_size)
+    : db_pool(new DBConnectionPool(pool_size)) {
   // Create a kv table in the database
   tablename = "kv_store";
   const char *sql =
       "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY KEY, value TEXT);";
   char *err_msg = nullptr;
 
-  rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+  sqlite3 *db = db_pool->getConnection();
+
+  int rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
   if (rc != SQLITE_OK) {
     fprintf(stderr, "SQL error: %s\n", err_msg);
     sqlite3_free(err_msg);
     exit(1);
   }
-
+  db_pool->releaseConnection(db);
   // reader_count = 0;
 }
 
-keyValueStore::~keyValueStore() {
-  // Close the connection to the database
-  sqlite3_close(db);
-}
+keyValueStore::~keyValueStore() { delete db_pool; }
 
 int keyValueStore::read(char *key, std::string &value) {
   {
@@ -47,6 +39,7 @@ int keyValueStore::read(char *key, std::string &value) {
   int rc;
   const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
   sqlite3_stmt *Stmt = nullptr;
+  sqlite3 *db = db_pool->getConnection();
 
   int sqlite_rc = sqlite3_prepare_v2(db, read_query, -1, &Stmt, nullptr);
 
@@ -76,6 +69,7 @@ int keyValueStore::read(char *key, std::string &value) {
   }
 
   sqlite3_finalize(Stmt);
+  db_pool->releaseConnection(db);
 
   {
     std::unique_lock<std::mutex> lock(read_count_mutex);
@@ -97,6 +91,7 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
 
   sqlite3_stmt *read_Stmt = nullptr;
   sqlite3_stmt *write_Stmt = nullptr;
+  sqlite3 *db = db_pool->getConnection();
 
   int sqlite_rc = sqlite3_prepare_v2(db, read_query, -1, &read_Stmt, nullptr);
 
@@ -159,6 +154,7 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
 
   sqlite3_finalize(read_Stmt);
 
+  db_pool->releaseConnection(db);
   resource_mutex.unlock();
   return rc;
 }
