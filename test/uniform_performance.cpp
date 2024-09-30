@@ -5,6 +5,7 @@
 #include <cstring>
 #include <ctime>
 #include <iostream>
+#include <omp.h>
 #include <random>
 #include <vector>
 
@@ -28,21 +29,24 @@ std::string generate_random_string(size_t length, std::mt19937 &gen) {
   return random_string;
 }
 
-void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
+void uniform_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
   char old_value[2049];
   char value[2049];
   std::random_device rd;
   std::mt19937 gen(rd());
+  std::uniform_int_distribution<> key_distrib(1, 1024);
   std::uniform_int_distribution<> value_len_distrib(1, 2048);
+  std::uniform_real_distribution<> op_distrib(0, 1.0);
 
   assert(kv739_init(server_name) == 0);
-  srand(time(NULL));
 
+#pragma omp parallel for num_threads(8)
   for (int i = 0; i < num_requests; i++) {
-    std::string key = "key" + std::to_string(rand() % 1024);
+    std::string key = "key" + std::to_string(key_distrib(gen));
     std::string new_value = generate_random_string(value_len_distrib(gen), gen);
+    double op_type = op_distrib(gen);
 
-    if (rand() % 2 == 0) {
+    if (op_type >= 0.5) {
       high_resolution_clock::time_point start_time =
           high_resolution_clock::now();
       int put_result =
@@ -86,7 +90,7 @@ void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
 void run_performance_test(char *server_name, int num_requests) {
   perf_metrics metrics;
 
-  hot_key_reqs(server_name, &metrics, num_requests);
+  uniform_reqs(server_name, &metrics, num_requests);
 
   double throughput = metrics.total_requests / (metrics.total_latency_ns / 1e9);
   double average_latency_ms =
