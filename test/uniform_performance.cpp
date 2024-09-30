@@ -14,6 +14,8 @@ using std::chrono::high_resolution_clock;
 
 struct perf_metrics {
   std::atomic<int> total_requests{0};
+  std::atomic<int> read_requests{0};
+  std::atomic<int> write_requests{0};
   std::atomic<int> successful_requests{0};
   std::atomic<long long> total_latency_ns{0};
 };
@@ -60,7 +62,7 @@ void uniform_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
       long long latency_ns = duration_nano.count();
 
       metrics->total_latency_ns += latency_ns;
-
+      metrics->write_requests++;
       if (put_result == 0 || put_result == 1) {
         metrics->successful_requests++;
       }
@@ -76,7 +78,7 @@ void uniform_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
       long long latency_ns = duration_nano.count();
 
       metrics->total_latency_ns += latency_ns;
-
+      metrics->read_requests++;
       if (get_result == 0 || get_result == 1) {
         metrics->successful_requests++;
       }
@@ -102,6 +104,8 @@ void run_performance_test(char *server_name, int num_requests) {
   std::cout << "Failed requests: "
             << metrics.total_requests - metrics.successful_requests
             << std::endl;
+  std::cout << "Read requests: " << metrics.read_requests << std::endl;
+  std::cout << "Write requests: " << metrics.write_requests << std::endl;
   std::cout << "Throughput: " << throughput << " rps" << std::endl;
   std::cout << "Average latency: " << average_latency_ms << " ms" << std::endl;
 }
