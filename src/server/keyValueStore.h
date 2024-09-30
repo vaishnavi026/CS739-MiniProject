@@ -22,7 +22,7 @@ private:
 
   int readdb(sqlite3 *db, char *key, std::string &value);
   int writedb(sqlite3 *db, char *key, char *value, std::string &old_value);
-  void opendb(const std::string &db_name, sqlite3 *db);
+  void opendb(const std::string &db_name, sqlite3* &db);
   void execdb(sqlite3* db, const char* sql);
 public:
   // Constructor and Destructor
