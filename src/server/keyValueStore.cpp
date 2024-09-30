@@ -74,7 +74,7 @@ keyValueStore::~keyValueStore() {
   
 }
 
-void keyValueStore::opendb(const std::string &db_name, sqlite3* db){
+void keyValueStore::opendb(const std::string &db_name, sqlite3* &db){
     int rc = sqlite3_open(db_name.c_str(), &db);
 
     if (rc) {
@@ -200,12 +200,15 @@ int keyValueStore::writedb(sqlite3* db,char *key, char *value, std::string &old_
 
     sqlite3_finalize(read_Stmt);
 
+    return rc;
+
 }
 
 int keyValueStore::read(char *key, std::string &value) {
 
     size_t hash_value = hash_fn(key);
     int db_idx = (int)hash_value % 8;
+    std::cout << "Reading from database number " << db_idx << "\n";
     int rc;
     
     switch(db_idx){
@@ -259,6 +262,7 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
     
     size_t hash_value = hash_fn(key);
     int db_idx = (int)hash_value % 8;
+    std::cout << "Writing to database number " << db_idx << "\n";
     int rc;
     
     switch(db_idx){
