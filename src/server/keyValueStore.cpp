@@ -74,7 +74,7 @@ keyValueStore::~keyValueStore() {
   
 }
 
-void opendb(const std::string &db_name, sqlite3* &db){
+void keyValueStore::opendb(const std::string &db_name, sqlite3* db){
     int rc = sqlite3_open(db_name.c_str(), &db);
 
     if (rc) {
@@ -83,7 +83,7 @@ void opendb(const std::string &db_name, sqlite3* &db){
     }
 }
 
-void execdb(sqlite3* db, const char* sql){
+void keyValueStore::execdb(sqlite3* db, const char* sql){
     
     char *err_msg = nullptr;
     int rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
@@ -94,7 +94,7 @@ void execdb(sqlite3* db, const char* sql){
     }
 }
 
-int readdb(sqlite3* db,char *key, std::string &value){
+int keyValueStore::readdb(sqlite3* db,char *key, std::string &value){
     
     int rc;
     const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
@@ -132,7 +132,7 @@ int readdb(sqlite3* db,char *key, std::string &value){
     return rc;
 }
 
-int writedb(sqlite3* db,char *key, char *value, std::string &old_value){
+int keyValueStore::writedb(sqlite3* db,char *key, char *value, std::string &old_value){
     
     int rc;
     const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
