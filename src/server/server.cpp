@@ -29,8 +29,7 @@ public:
     int response_write;
     // response = kvStore.write(request->key().c_str(),
     // request->value().c_str());
-    response_write = kvStore.write((char *)request->key().c_str(),
-                                   (char *)request->value().c_str(), old_value);
+    response_write = kvStore.write(request->key(), request->value(), old_value);
     std::cout << response_write << "\n";
 
     if (response_write == 0) {
@@ -53,7 +52,7 @@ public:
     // } else {
     //     response->set_value("Key not found");
 
-    response_read = kvStore.read((char *)request->key().c_str(), value);
+    response_read = kvStore.read(request->key(), value);
     std::cout << response_read << "\n";
 
     if (response_read == 0) {
