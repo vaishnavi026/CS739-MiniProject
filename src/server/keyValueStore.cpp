@@ -7,44 +7,43 @@
 #include <string.h>
 
 keyValueStore::keyValueStore() {
-  // Open the SQLite database and establish the connection
-  // sqlite3_config(SQLITE_CONFIG_SERIALIZED);
-  int rc = sqlite3_open("kv.db", &db);
+  for (int i = 0; i < 8; i++) {
+    opendb("kv" + std::to_string(i) + ".db", &shards[i]);
+    execdb(&shards[i], "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY "
+                       "KEY, value TEXT);");
+  }
+}
+
+keyValueStore::~keyValueStore() {
+  // Close the connection to the database
+  for (int i = 0; i < 8; i++) {
+    sqlite3_close(shards[i]);
+  }
+}
+
+void keyValueStore::opendb(const std::string &db_name, sqlite3 **db) {
+  int rc = sqlite3_open(db_name.c_str(), &*db);
 
   if (rc) {
-    fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+    fprintf(stderr, "Can't open database %s: %s\n", db_name.c_str(),
+            sqlite3_errmsg(*db));
     exit(1);
   }
+}
 
-  // Create a kv table in the database
-  tablename = "kv_store";
-  const char *sql =
-      "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY KEY, value TEXT);";
+void keyValueStore::execdb(sqlite3 **db, const char *sql) {
   char *err_msg = nullptr;
-
-  rc = sqlite3_exec(db, sql, 0, 0, &err_msg);
+  int rc = sqlite3_exec(*db, sql, 0, 0, &err_msg);
   if (rc != SQLITE_OK) {
     fprintf(stderr, "SQL error: %s\n", err_msg);
     sqlite3_free(err_msg);
     exit(1);
   }
-
-  // reader_count = 0;
 }
 
-keyValueStore::~keyValueStore() {
-  // Close the connection to the database
-  sqlite3_close(db);
-}
+int keyValueStore::readdb(sqlite3 *db, const char *key, std::string &value) {
 
-int keyValueStore::read(char *key, std::string &value) {
-  {
-    std::unique_lock<std::mutex> lock(read_count_mutex);
-    reader_count++;
-    if (reader_count == 1)
-      resource_mutex.lock();
-  }
-  int rc;
+  int rc = -1;
   const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
   sqlite3_stmt *Stmt = nullptr;
 
@@ -77,23 +76,16 @@ int keyValueStore::read(char *key, std::string &value) {
 
   sqlite3_finalize(Stmt);
 
-  {
-    std::unique_lock<std::mutex> lock(read_count_mutex);
-    reader_count--;
-    if (reader_count == 0)
-      resource_mutex.unlock();
-  }
-
   return rc;
 }
 
-int keyValueStore::write(char *key, char *value, std::string &old_value) {
-  resource_mutex.lock();
+int keyValueStore::writedb(sqlite3 *db, const char *key, const char *value,
+                           std::string &old_value) {
 
-  int rc;
+  int rc = -1;
   const char *read_query = "SELECT value FROM kv_store WHERE KEY = ?;";
   const char *write_query;
-  const char *read_value;
+  const char *read_value = "";
 
   sqlite3_stmt *read_Stmt = nullptr;
   sqlite3_stmt *write_Stmt = nullptr;
@@ -159,6 +151,39 @@ int keyValueStore::write(char *key, char *value, std::string &old_value) {
 
   sqlite3_finalize(read_Stmt);
 
-  resource_mutex.unlock();
+  return rc;
+}
+
+int keyValueStore::read(const std::string &key, std::string &value) {
+
+  size_t hash_value = hash_fn(key);
+  int db_idx = hash_value % 8;
+  std::cout << "Reading from database number " << db_idx << "\n";
+  int rc;
+
+  if (db_idx >= 0 && db_idx < 8) {
+    db_mutexes[db_idx].lock();
+    rc = readdb(shards[db_idx], key.c_str(), value);
+    db_mutexes[db_idx].unlock();
+  } else {
+    std::cerr << "Hashed DB Index Invalid" << std::endl;
+  }
+  return rc;
+}
+
+int keyValueStore::write(const std::string &key, const std::string &value,
+                         std::string &old_value) {
+
+  size_t hash_value = hash_fn(key);
+  int db_idx = hash_value % 8;
+  std::cout << "Writing to database number " << db_idx << "\n";
+  int rc;
+  if (db_idx >= 0 && db_idx < 8) {
+    db_mutexes[db_idx].lock();
+    rc = writedb(shards[db_idx], key.c_str(), value.c_str(), old_value);
+    db_mutexes[db_idx].unlock();
+  } else {
+    std::cerr << "Hashed DB Index Invalid" << std::endl;
+  }
   return rc;
 }
