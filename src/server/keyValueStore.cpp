@@ -9,6 +9,7 @@
 keyValueStore::keyValueStore() {
   for (int i = 0; i < 8; i++) {
     opendb("kv" + std::to_string(i) + ".db", &shards[i]);
+    execdb(&shards[i], "PRAGMA journal_mode=WAL;");
     execdb(&shards[i], "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY "
                        "KEY, value TEXT);");
   }
