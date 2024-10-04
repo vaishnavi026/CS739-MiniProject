@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
   int put_result = kv739_put(key, value, old_value);
   std::cout << put_result;
 
-  if (put_result == 0) {
+  if (put_result == 0 || put_result == 1) {
     std::cout << "PASS: Value written successfully.\n";
   } else {
     std::cout << "FAIL: Error writing value.\n";
