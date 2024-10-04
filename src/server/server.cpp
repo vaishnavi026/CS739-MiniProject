@@ -22,15 +22,15 @@ private:
 public:
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
-    std::cout << "Received PUT request with key, value \n";
-    std::cout << request->key() << " " << request->value() << std::endl;
+    // std::cout << "Received PUT request with key, value \n";
+    // std::cout << request->key() << " " << request->value() << std::endl;
 
     std::string old_value;
     int response_write;
     // response = kvStore.write(request->key().c_str(),
     // request->value().c_str());
     response_write = kvStore.write(request->key(), request->value(), old_value);
-    std::cout << response_write << "\n";
+    // std::cout << response_write << "\n";
 
     if (response_write == 0) {
       return grpc::Status(grpc::StatusCode::ALREADY_EXISTS, old_value);
@@ -42,8 +42,8 @@ public:
 
   Status Get(ServerContext *context, const GetRequest *request,
              GetReponse *response) override {
-    std::cout << "Received GET request with key \n";
-    std::cout << request->key() << std::endl;
+    // std::cout << "Received GET request with key \n";
+    // std::cout << request->key() << std::endl;
 
     std::string value;
     int response_read;
@@ -53,7 +53,7 @@ public:
     //     response->set_value("Key not found");
 
     response_read = kvStore.read(request->key(), value);
-    std::cout << response_read << "\n";
+    // std::cout << response_read << "\n";
 
     if (response_read == 0) {
       response->set_value(value);

@@ -158,7 +158,7 @@ int keyValueStore::read(const std::string &key, std::string &value) {
 
   size_t hash_value = hash_fn(key);
   int db_idx = hash_value % 8;
-  std::cout << "Reading from database number " << db_idx << "\n";
+  // std::cout << "Reading from database number " << db_idx << "\n";
   int rc;
 
   if (db_idx >= 0 && db_idx < 8) {
@@ -176,7 +176,7 @@ int keyValueStore::write(const std::string &key, const std::string &value,
 
   size_t hash_value = hash_fn(key);
   int db_idx = hash_value % 8;
-  std::cout << "Writing to database number " << db_idx << "\n";
+  // std::cout << "Writing to database number " << db_idx << "\n";
   int rc;
   if (db_idx >= 0 && db_idx < 8) {
     db_mutexes[db_idx].lock();
