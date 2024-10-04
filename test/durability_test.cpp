@@ -1,4 +1,5 @@
 #include "client_interface.h"
+#include <cstring>
 #include <iostream>
 #include <signal.h>
 #include <unistd.h>

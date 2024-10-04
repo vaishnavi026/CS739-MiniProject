@@ -1,4 +1,5 @@
 #include "client_interface.h"
+#include <cstring>
 #include <iostream>
 
 int main(int argc, char **argv) {
@@ -9,7 +10,7 @@ int main(int argc, char **argv) {
     server_name = argv[1];
   }
 
-  if (kv739_init((char*)server_name.data()) != 0) {
+  if (kv739_init((char *)server_name.data()) != 0) {
     return -1;
   }
 
