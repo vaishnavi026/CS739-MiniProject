@@ -25,10 +25,8 @@ int keyValueStore::read(const std::string &key, std::string &value) {
 
   status = db->Get(rocksdb::ReadOptions(), key, &value);
   if (status.ok()) {
-    std::cout << "Value for key: " << value << std::endl;
     return 0;
   } else if (status.IsNotFound()) {
-    std::cout << "Key not found" << std::endl;
     return 1;
   }
 
@@ -38,13 +36,20 @@ int keyValueStore::read(const std::string &key, std::string &value) {
 
 int keyValueStore::write(const std::string &key, const std::string &value,
                          std::string &old_value) {
-  rocksdb::Status status;
-  status = db->Put(rocksdb::WriteOptions(), key, value);
+  rocksdb::Status get_status;
+  rocksdb::Status put_status;
+  get_status = db->Get(rocksdb::ReadOptions(), key, &old_value);
 
-  if (!status.ok()) {
-    std::cerr << "Error putting value: " << status.ToString() << std::endl;
-    return 0;
+  put_status = db->Put(rocksdb::WriteOptions(), key, value);
+
+  if (!put_status.ok()) {
+    std::cerr << "Error putting value: " << put_status.ToString() << std::endl;
+    return -1;
   }
 
-  return 1;
+  if (!get_status.ok()) {
+    return 1;
+  }
+
+  return 0;
 }
