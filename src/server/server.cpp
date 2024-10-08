@@ -53,7 +53,6 @@ public:
     //     response->set_value("Key not found");
 
     response_read = kvStore.read(request->key(), value);
-    // std::cout << response_read << "\n";
 
     if (response_read == 0) {
       response->set_value(value);

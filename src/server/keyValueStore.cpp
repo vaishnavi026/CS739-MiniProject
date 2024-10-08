@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <rocksdb/db.h>
+#include <rocksdb/slice.h>
+#include <rocksdb/options.h>
 
 keyValueStore::keyValueStore() {
   for (int i = 0; i < 8; i++) {
@@ -13,6 +16,13 @@ keyValueStore::keyValueStore() {
     execdb(&shards[i], "CREATE TABLE IF NOT EXISTS kv_store (key TEXT PRIMARY "
                        "KEY, value TEXT);");
   }
+
+  options.create_if_missing = true;
+  // Open the database
+  rocksdb::Status status = rocksdb::DB::Open(options, "/tmp/rocksdb", &db);
+  if (!status.ok()) {
+      std::cout << "Error opening database: " << status.ToString() << std::endl;
+  }
 }
 
 keyValueStore::~keyValueStore() {
@@ -20,6 +30,8 @@ keyValueStore::~keyValueStore() {
   for (int i = 0; i < 8; i++) {
     sqlite3_close(shards[i]);
   }
+
+  delete db;
 }
 
 void keyValueStore::opendb(const std::string &db_name, sqlite3 **db) {
@@ -156,35 +168,31 @@ int keyValueStore::writedb(sqlite3 *db, const char *key, const char *value,
 }
 
 int keyValueStore::read(const std::string &key, std::string &value) {
+  std::string read_value;
+  rocksdb::Status status;
 
-  size_t hash_value = hash_fn(key);
-  int db_idx = hash_value % 8;
-  // std::cout << "Reading from database number " << db_idx << "\n";
-  int rc;
-
-  if (db_idx >= 0 && db_idx < 8) {
-    db_mutexes[db_idx].lock();
-    rc = readdb(shards[db_idx], key.c_str(), value);
-    db_mutexes[db_idx].unlock();
-  } else {
-    std::cerr << "Hashed DB Index Invalid" << std::endl;
+  status = db->Get(rocksdb::ReadOptions(), key, &read_value);
+  if (status.ok()) {
+      std::cout << "Value for key: " << value << std::endl;
+      return 0;
+  } else if (status.IsNotFound()) {
+      std::cout << "Key not found" << std::endl;
+      return 1;
   }
-  return rc;
+  
+  std::cerr << "Error getting value: " << status.ToString() << std::endl;
+  return -1;
 }
 
 int keyValueStore::write(const std::string &key, const std::string &value,
                          std::string &old_value) {
+  rocksdb::Status status;
+  status = db->Put(rocksdb::WriteOptions(), key, value);
 
-  size_t hash_value = hash_fn(key);
-  int db_idx = hash_value % 8;
-  // std::cout << "Writing to database number " << db_idx << "\n";
-  int rc;
-  if (db_idx >= 0 && db_idx < 8) {
-    db_mutexes[db_idx].lock();
-    rc = writedb(shards[db_idx], key.c_str(), value.c_str(), old_value);
-    db_mutexes[db_idx].unlock();
-  } else {
-    std::cerr << "Hashed DB Index Invalid" << std::endl;
+  if (!status.ok()) {
+      std::cerr << "Error putting value: " << status.ToString() << std::endl;
+      return 0;
   }
-  return rc;
+
+  return 1;
 }

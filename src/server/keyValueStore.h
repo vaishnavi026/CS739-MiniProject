@@ -3,11 +3,17 @@
 
 #include <mutex>
 #include <sqlite3.h>
+#include <rocksdb/db.h>
+#include <rocksdb/slice.h>
+#include <rocksdb/options.h>
+
 class keyValueStore {
 private:
   sqlite3 *shards[8];
   std::mutex db_mutexes[8];
   std::hash<std::string> hash_fn;
+  rocksdb::DB* db;
+  rocksdb::Options options;
   // std::mutex read_count_mutex;
   // int reader_count = 0;
 
