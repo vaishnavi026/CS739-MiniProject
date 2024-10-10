@@ -13,8 +13,8 @@ private:
 
 public:
   // Constructor and Destructor
-  keyValueStore();
-  keyValueStore(std::string server_address);
+  keyValueStore() {};
+  keyValueStore(std::string &server_address);
   ~keyValueStore();
 
   // Member functions to get and put key-value pairs
