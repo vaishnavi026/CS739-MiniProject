@@ -66,7 +66,7 @@ public:
     int response_write;
     // response = kvStore.write(request->key().c_str(),
     // request->value().c_str());
-    response_write = kvStore.write(request->key(), request->value(), old_value);
+    response_write = kvStore.write(request->key(), request->value(), request->timestamp(), old_value);
     // std::cout << response_write << "\n";
 
     if (response_write == 0) {
@@ -138,6 +138,8 @@ public:
   }
 
   void ProcessHeartbeatNotFound() {}
+
+
 };
 
 void RunServer(std::string &server_address, int total_servers) {

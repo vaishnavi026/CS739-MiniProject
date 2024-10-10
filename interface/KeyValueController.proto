@@ -13,7 +13,7 @@ service KVStore {
 message PutRequest {
     string key = 1;
     string value = 2;
-    uint64 version = 3;
+    uint64 timestamp = 3;
 }
 
 message GetRequest {
@@ -22,7 +22,7 @@ message GetRequest {
 
 message GetReponse {
     string value = 1;
-    uint64 version = 2;
+    uint64 timestamp = 2;
     uint32 code = 3;
 }
 

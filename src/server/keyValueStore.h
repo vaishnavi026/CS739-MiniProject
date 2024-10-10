@@ -19,7 +19,7 @@ public:
 
   // Member functions to get and put key-value pairs
   int read(const std::string &key, std::string &value);
-  int write(const std::string &key, const std::string &value,
+  int write(const std::string &key, const std::string &value,  std::uint64_t timestamp, 
             std::string &old_value);
 };
 
