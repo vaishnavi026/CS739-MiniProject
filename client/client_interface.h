@@ -9,4 +9,6 @@ int kv739_get(char *key, char *value);
 
 int kv739_put(char *key, char *value, char *old_value);
 
+int kv739_die(char *server_name, int clean);
+
 #endif

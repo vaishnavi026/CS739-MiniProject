@@ -10,6 +10,8 @@
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
+using kvstore::DieRequest;
+using kvstore::Empty;
 using kvstore::GetReponse;
 using kvstore::GetRequest;
 using kvstore::KVStore;
@@ -78,6 +80,32 @@ int kv739_init(char *server_name) {
 
 int kv739_shutdown(void) {
   kvstore_stub.reset();
+  return 0;
+}
+
+int kv739_die(char *server_name, int clean) {
+  std::string server_address(server_name);
+  auto channel =
+      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  std::unique_ptr<kvstore::KVStore::Stub> temp_stub =
+      kvstore::KVStore::NewStub(channel);
+  if (!temp_stub) {
+    std::cerr << "Failed to create gRPC stub\n";
+    return -1;
+  }
+  grpc_connectivity_state state = channel->GetState(true);
+  if (state == GRPC_CHANNEL_SHUTDOWN ||
+      state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+    std::cerr << "Failed to establish gRPC channel connection\n";
+    return -1;
+  }
+  DieRequest request;
+  ClientContext context;
+  Empty response;
+
+  request.set_clean(clean);
+  temp_stub->Die(&context, request, &response);
+
   return 0;
 }
 
