@@ -1,10 +1,14 @@
 #include "KeyValueController.grpc.pb.h"
 #include "KeyValueController.pb.h"
 #include "keyValueStore.h"
+#include <chrono>
 #include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <string>
+#include <thread>
 
+using grpc::Channel;
+using grpc::ClientContext;
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
@@ -13,6 +17,7 @@ using kvstore::DieRequest;
 using kvstore::Empty;
 using kvstore::GetReponse;
 using kvstore::GetRequest;
+using kvstore::HeartbeatMessage;
 using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
@@ -20,12 +25,36 @@ using kvstore::PutResponse;
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
   keyValueStore kvStore;
+  std::string server_address;
   int total_servers;
+  bool is_primary;
+  std::string primary_address;
+  std::map<std::string, std::unique_ptr<KVStore::Stub>> kvstore_stubs_map;
 
 public:
-  KVStoreServiceImpl(std::string server_address, int server_count) { 
+  KVStoreServiceImpl(std::string &server_address, int total_servers,
+                     bool is_primary) {
+    this->server_address = server_address;
+    this->total_servers = total_servers;
+    this->is_primary = is_primary;
+    this->primary_address = "0.0.0.0:50051";
     kvStore = keyValueStore(server_address);
-    total_servers = server_count; 
+    if (is_primary) {
+      for (int port = 50051; port < 50051 + total_servers; port++) {
+        std::string address("0.0.0.0:" + std::to_string(port));
+        auto channel =
+            grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
+        kvstore_stubs_map[address] = kvstore::KVStore::NewStub(channel);
+        if (!kvstore_stubs_map[address]) {
+          std::cerr << "Failed to create gRPC stub\n";
+        }
+        grpc_connectivity_state state = channel->GetState(true);
+        if (state == GRPC_CHANNEL_SHUTDOWN ||
+            state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+          std::cerr << "Failed to establish gRPC channel connection\n";
+        }
+      }
+    }
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -82,10 +111,40 @@ public:
     }
     exit(1);
   }
+
+  Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
+                   Empty *response) override {
+    this->primary_address = request->primary();
+    return Status::OK;
+  }
+
+  void SendHeartbeats() {
+    while (is_primary) {
+      std::cout << std::this_thread::get_id() << std::endl;
+
+      for (const auto &pair : kvstore_stubs_map) {
+        HeartbeatMessage message;
+        ClientContext context;
+        Empty response;
+
+        message.set_primary(server_address);
+        pair.second->Heartbeat(&context, message, &response);
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    }
+
+    ProcessHeartbeatNotFound();
+  }
+
+  void ProcessHeartbeatNotFound() {}
 };
 
-void RunServer(std::string &server_address, int server_count) {
-  KVStoreServiceImpl service(server_address, server_count);
+void RunServer(std::string &server_address, int total_servers) {
+  int port = std::stoi(server_address.substr(server_address.find(":") + 1,
+                                             server_address.size()));
+  bool is_primary = port == 50051;
+  KVStoreServiceImpl service(server_address, total_servers, is_primary);
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -96,18 +155,23 @@ void RunServer(std::string &server_address, int server_count) {
     std::cerr << "Failed to start server on " << server_address << std::endl;
     exit(1);
   }
+
+  std::thread t1(&KVStoreServiceImpl::SendHeartbeats, &service);
+
   std::cout << "Server started at " << server_address << std::endl;
   server->Wait();
+
+  t1.join();
 }
 
 int main(int argc, char **argv) {
   std::string server_address("0.0.0.0:50051");
-  int server_count = 10;
+  int total_servers = 10;
   if (argc > 1) {
     server_address = argv[1];
-    server_count = std::atoi(argv[2]);
+    total_servers = std::atoi(argv[2]);
   }
 
-  RunServer(server_address, server_count);
+  RunServer(server_address, total_servers);
   return 0;
 }
