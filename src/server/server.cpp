@@ -23,7 +23,10 @@ private:
   int total_servers;
 
 public:
-  KVStoreServiceImpl(int server_count) { total_servers = server_count; }
+  KVStoreServiceImpl(std::string server_address, int server_count) { 
+    kvStore = keyValueStore(server_address);
+    total_servers = server_count; 
+  }
 
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
@@ -82,7 +85,7 @@ public:
 };
 
 void RunServer(std::string &server_address, int server_count) {
-  KVStoreServiceImpl service(server_count);
+  KVStoreServiceImpl service(server_address, server_count);
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());

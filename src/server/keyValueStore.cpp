@@ -4,14 +4,24 @@
 #include <rocksdb/db.h>
 #include <rocksdb/options.h>
 #include <rocksdb/slice.h>
-#include <sqlite3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 keyValueStore::keyValueStore() {
   options.create_if_missing = true;
-  rocksdb::Status status = rocksdb::DB::Open(options, "rocksdb", &db);
+  std::string db_name = "rocksdb";
+  rocksdb::Status status = rocksdb::DB::Open(options, db_name, &db);
+  if (!status.ok()) {
+    std::cerr << "Error opening database: " << status.ToString() << std::endl;
+    exit(1);
+  }
+}
+
+keyValueStore::keyValueStore(std::string server_address) {
+  options.create_if_missing = true;
+  std::string db_name = "rocksdb_" + server_address;
+  rocksdb::Status status = rocksdb::DB::Open(options, db_name, &db);
   if (!status.ok()) {
     std::cerr << "Error opening database: " << status.ToString() << std::endl;
     exit(1);
