@@ -9,6 +9,8 @@ using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
+using kvstore::DieRequest;
+using kvstore::Empty;
 using kvstore::GetReponse;
 using kvstore::GetRequest;
 using kvstore::KVStore;
@@ -18,8 +20,11 @@ using kvstore::PutResponse;
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
   keyValueStore kvStore;
+  int total_servers;
 
 public:
+  KVStoreServiceImpl(int server_count) { total_servers = server_count; }
+
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
     // std::cout << "Received PUT request with key, value \n";
@@ -62,10 +67,22 @@ public:
     }
     return grpc::Status(grpc::StatusCode::ABORTED, "");
   }
+
+  Status Die(ServerContext *context, const DieRequest *request,
+             Empty *response) override {
+    int clean_code = request->clean();
+    if (clean_code == 1) {
+      // TODO: If primary, complete state replciation and new election.
+      std::cout << "State flushed, server shutting down";
+    } else {
+      std::cout << "Server killed";
+    }
+    exit(1);
+  }
 };
 
-void RunServer(std::string &server_address) {
-  KVStoreServiceImpl service;
+void RunServer(std::string &server_address, int server_count) {
+  KVStoreServiceImpl service(server_count);
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -82,10 +99,12 @@ void RunServer(std::string &server_address) {
 
 int main(int argc, char **argv) {
   std::string server_address("0.0.0.0:50051");
+  int server_count = 10;
   if (argc > 1) {
     server_address = argv[1];
+    server_count = std::atoi(argv[2]);
   }
 
-  RunServer(server_address);
+  RunServer(server_address, server_count);
   return 0;
 }
