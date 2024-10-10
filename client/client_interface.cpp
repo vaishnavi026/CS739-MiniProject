@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <fstream>
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -18,47 +19,12 @@ using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 
-bool is_valid_key(char *key) {
-
-  int len = strlen(key);
-
-  if (len == 0 || len > 128) {
-    return false;
-  }
-
-  for (int i = 0; i < len; ++i) {
-    char ch = key[i];
-    if (isalnum(ch)) {
-      // Allowed case
-    } else {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-bool is_valid_value(char *value) {
-
-  int len = strlen(value);
-
-  if (len == 0 || len > 2048) {
-    return false;
-  }
-
-  for (int i = 0; i < len; ++i) {
-    char ch = value[i];
-    if (isalnum(ch)) {
-      // Allowed case
-    } else {
-      return false;
-    }
-  }
-
-  return true;
-}
-
+std::vector<std::string> servers;
+std::map<std::string,std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
+
+bool is_valid_value(char *value);
+bool is_valid_key(char *key);
 
 int kv739_init(char *config_file) {
 
@@ -69,11 +35,11 @@ int kv739_init(char *config_file) {
   }
 
   std::string server_address;
-  std::vector<std::string> servers;
-
+  int num_servers_successful = 0;
   while (std::getline(file, server_address)) {
     if (!server_address.empty()) {
       servers.push_back(server_address);
+      kvstore_map[server_address] = nullptr;
     }
   }
 
@@ -85,24 +51,33 @@ int kv739_init(char *config_file) {
   }
 
   for (const auto& address : servers) {
-  {
     auto channel = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
-    kvstore_stub = kvstore::KVStore::NewStub(channel);
-    if (!kvstore_stub) {
+    kvstore_map[address] = kvstore::KVStore::NewStub(channel);
+    if (!kvstore_map[address]) {
       std::cerr << "Failed to create gRPC stub\n";
-      return -1;
     }
     grpc_connectivity_state state = channel->GetState(true);
     if (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
       std::cerr << "Failed to establish gRPC channel connection\n";
-      return -1;
+    }else{
+      num_servers_successful++;
     }
-    return 0;
   }
+
+  if(num_servers_successful == 0)
+      return -1;
+  else
+      return 0;
 }
 
 int kv739_shutdown(void) {
-  kvstore_stub.reset();
+
+  for (const auto& address : servers) {
+      kvstore_map[address].reset();
+  }
+
+  servers.clear();
+  
   return 0;
 }
 
@@ -194,6 +169,46 @@ int kv739_put(char *key, char *value, char *old_value) {
               << std::endl;
     return -1;
   }
+}
+
+bool is_valid_key(char *key) {
+
+  int len = strlen(key);
+
+  if (len == 0 || len > 128) {
+    return false;
+  }
+
+  for (int i = 0; i < len; ++i) {
+    char ch = key[i];
+    if (isalnum(ch)) {
+      // Allowed case
+    } else {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool is_valid_value(char *value) {
+
+  int len = strlen(value);
+
+  if (len == 0 || len > 2048) {
+    return false;
+  }
+
+  for (int i = 0; i < len; ++i) {
+    char ch = value[i];
+    if (isalnum(ch)) {
+      // Allowed case
+    } else {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 int main(int argc, char **argv) {
