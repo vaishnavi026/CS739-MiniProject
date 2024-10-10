@@ -5,11 +5,15 @@ package kvstore;
 service KVStore {
     rpc Put(PutRequest) returns (PutResponse);
     rpc Get(GetRequest) returns (GetReponse);
+    rpc Heartbeat(HeartbeatMessage) returns (Empty);
+    rpc Replicate(PutRequest) returns (Empty);
+    rpc Die(DieRequest) returns (Empty);
 }
 
 message PutRequest {
     string key = 1;
     string value = 2;
+    uint64 version = 3;
 }
 
 message GetRequest {
@@ -18,8 +22,23 @@ message GetRequest {
 
 message GetReponse {
     string value = 1;
+    uint64 version = 2;
+    uint32 code = 3;
 }
 
 message PutResponse {
     string message = 1;
+    uint32 code = 2;
+}
+
+message HeartbeatMessage {
+    string primary = 1;
+    uint64 timestamp = 2;
+}
+
+message DieRequest {
+    bool clean = 1;
+}
+
+message Empty {
 }
