@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string>
 #include <fstream>
+#include <random>
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -108,7 +109,13 @@ int kv739_die(char *server_name, int clean) {
 }
 
 int kv739_get(char *key, char *value) {
-  if (!kvstore_stub) {
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> random_func(0, servers.size()-1);
+  int rand_server = random_func(gen);
+
+  if (!kvstore_map[servers[rand_server]]) {
     std::cerr << "Client not initialized, call kv739_init\n";
     return -1;
   }
@@ -125,7 +132,7 @@ int kv739_get(char *key, char *value) {
   GetReponse response;
   ClientContext context;
 
-  Status status = kvstore_stub->Get(&context, request, &response);
+  Status status = kvstore_map[servers[rand_server]]->Get(&context, request, &response);
 
   if (status.ok()) {
     strcpy(value, response.value().c_str());
@@ -139,7 +146,13 @@ int kv739_get(char *key, char *value) {
 }
 
 int kv739_put(char *key, char *value, char *old_value) {
-  if (!kvstore_stub) {
+
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_int_distribution<> random_func(1, servers.size()-1);
+  int rand_server = random_func(gen);
+
+  if (!kvstore_map[servers[rand_server]]) {
     std::cerr << "Client not initialized, call kv739_init\n";
     return -1;
   }
@@ -153,7 +166,7 @@ int kv739_put(char *key, char *value, char *old_value) {
     PutResponse response;
     ClientContext context;
 
-    Status status = kvstore_stub->Put(&context, request, &response);
+    Status status = kvstore_map[servers[rand_server]]->Put(&context, request, &response);
 
     if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
       strcpy(old_value, status.error_message().c_str());
