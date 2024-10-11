@@ -8,23 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-bool parseValue(const std::string &combined_value, uint64_t &timestamp,
-                std::string &value) {
-  // Get delimited position
-  size_t delimiter_pos = combined_value.find('|');
-
-  if (delimiter_pos != std::string::npos && delimiter_pos > 0 &&
-      delimiter_pos < combined_value.size() - 1) {
-    timestamp =
-        std::stoull(combined_value.substr(0, delimiter_pos)); // get usigned_int
-    value = combined_value.substr(delimiter_pos +
-                                  1); // Get the value after the delimiter
-    return true;
-  }
-
-  std::cerr << "Error: Invalid format for combined value" << std::endl;
-  return false;
-}
 
 keyValueStore::keyValueStore(std::string &server_address) {
   options.create_if_missing = true;
@@ -42,6 +25,7 @@ int keyValueStore::read(const std::string &key, std::string &value) {
   rocksdb::Status status;
 
   status = db->Get(rocksdb::ReadOptions(), key, &value);
+
   if (status.ok()) {
     return 0;
   } else if (status.IsNotFound()) {
@@ -57,7 +41,7 @@ int keyValueStore::write(const std::string &key, const std::string &value,
   rocksdb::Status get_status;
   rocksdb::Status put_status;
   get_status = db->Get(rocksdb::ReadOptions(), key, &old_value);
-
+  std::cout << "Old value is " << old_value << std::endl;
   std::string new_value = std::to_string(timestamp) + "|" + value;
   put_status = db->Put(rocksdb::WriteOptions(), key, new_value);
 

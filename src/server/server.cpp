@@ -23,6 +23,25 @@ using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 
+bool parseValue(const std::string combined_value, uint64_t &timestamp,
+                std::string &value) {
+  // Get delimited position
+  size_t delimiter_pos = combined_value.find('|');
+  // std::cout << "Combined value " << combined_value << "  " << std::to_string(delimiter_pos) << std::endl;
+  if (delimiter_pos != std::string::npos && delimiter_pos > 0 &&
+      delimiter_pos < combined_value.size() - 1) {
+    timestamp =
+        std::stoull(combined_value.substr(0, delimiter_pos)); // get usigned_int
+    value = combined_value.substr(delimiter_pos +
+                                  1); // Get the value after the delimiter
+    return true;
+  }
+
+  std::cerr << "Error: Invalid format for combined value" << std::endl;
+  return false;
+}
+
+
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
   std::mutex change_primary;
@@ -74,17 +93,17 @@ public:
     // std::cout << "Received GET request with key \n";
     // std::cout << request->key() << std::endl;
 
-    std::string value;
+    std::string timestamp_and_value;
     int response_read;
-    // if (kvStore.read(request->key().c_str(), value) == 0) {
-    //     response->set_value(value);
-    // } else {
-    //     response->set_value("Key not found");
 
-    response_read = kvStore.read(request->key(), value);
+    response_read = kvStore.read(request->key(), timestamp_and_value);
+    std::string value;
+    uint64_t timestamp;
+    bool parseSuccessful = parseValue(timestamp_and_value, timestamp, value);
 
     if (response_read == 0) {
       response->set_value(value);
+      response->set_timestamp(timestamp);
       return Status::OK;
     } else if (response_read == 1) {
       return grpc::Status(grpc::StatusCode::NOT_FOUND, "");
