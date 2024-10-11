@@ -106,7 +106,7 @@ public:
 
   Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
                    Empty *response) override {
-    std::cout << "Received Heartbeat" << std::endl;
+    // std::cout << "Received Heartbeat" << std::endl;
     std::unique_lock<std::mutex> primary_lock(change_primary);
     this->last_heartbeat = std::chrono::high_resolution_clock::now();
     this->primary_address = request->primary();
@@ -134,7 +134,7 @@ public:
     std::chrono::duration<double, std::milli> duration_milli =
         std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(
             current_time - last_heartbeat);
-    std::cout << "Last heartbeat " << duration_milli.count() << std::endl;
+    // std::cout << "Last heartbeat " << duration_milli.count() << std::endl;
     if (duration_milli.count() > 300) {
       std::unique_lock<std::mutex> primary_lock(change_primary);
       this->primary_address = server_address;
@@ -146,7 +146,7 @@ public:
 
   void SendHeartbeats() {
     for (const auto &pair : kvstore_stubs_map) {
-      std::cout << pair.first << std::endl;
+      // std::cout << pair.first << std::endl;
       HeartbeatMessage message;
       ClientContext context;
       Empty response;

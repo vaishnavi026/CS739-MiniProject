@@ -1,13 +1,13 @@
 #include "client_interface.h"
 #include "KeyValueController.grpc.pb.h"
 #include "KeyValueController.pb.h"
+#include <fstream>
 #include <grpcpp/grpcpp.h>
 #include <iostream>
+#include <random>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <fstream>
-#include <random>
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -21,7 +21,7 @@ using kvstore::PutRequest;
 using kvstore::PutResponse;
 
 std::vector<std::string> servers;
-std::map<std::string,std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
+std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
 
 bool is_valid_value(char *value);
@@ -51,34 +51,36 @@ int kv739_init(char *config_file) {
     return -1;
   }
 
-  for (const auto& address : servers) {
-    auto channel = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
+  for (const auto &address : servers) {
+    auto channel =
+        grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
     kvstore_map[address] = kvstore::KVStore::NewStub(channel);
     if (!kvstore_map[address]) {
       std::cerr << "Failed to create gRPC stub\n";
     }
     grpc_connectivity_state state = channel->GetState(true);
-    if (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+    if (state == GRPC_CHANNEL_SHUTDOWN ||
+        state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
       std::cerr << "Failed to establish gRPC channel connection\n";
-    }else{
+    } else {
       num_servers_successful++;
     }
   }
 
-  if(num_servers_successful == 0)
-      return -1;
+  if (num_servers_successful == 0)
+    return -1;
   else
-      return 0;
+    return 0;
 }
 
 int kv739_shutdown(void) {
 
-  for (const auto& address : servers) {
-      kvstore_map[address].reset();
+  for (const auto &address : servers) {
+    kvstore_map[address].reset();
   }
 
   servers.clear();
-  
+
   return 0;
 }
 
@@ -112,7 +114,7 @@ int kv739_get(char *key, char *value) {
 
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> random_func(0, servers.size()-1);
+  std::uniform_int_distribution<> random_func(0, servers.size() - 1);
   int rand_server = random_func(gen);
 
   if (!kvstore_map[servers[rand_server]]) {
@@ -132,7 +134,8 @@ int kv739_get(char *key, char *value) {
   GetReponse response;
   ClientContext context;
 
-  Status status = kvstore_map[servers[rand_server]]->Get(&context, request, &response);
+  Status status =
+      kvstore_map[servers[rand_server]]->Get(&context, request, &response);
 
   if (status.ok()) {
     strcpy(value, response.value().c_str());
@@ -149,7 +152,7 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> random_func(1, servers.size()-1);
+  std::uniform_int_distribution<> random_func(1, servers.size() - 1);
   int rand_server = random_func(gen);
 
   if (!kvstore_map[servers[rand_server]]) {
@@ -166,7 +169,8 @@ int kv739_put(char *key, char *value, char *old_value) {
     PutResponse response;
     ClientContext context;
 
-    Status status = kvstore_map[servers[rand_server]]->Put(&context, request, &response);
+    Status status =
+        kvstore_map[servers[rand_server]]->Put(&context, request, &response);
 
     if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
       strcpy(old_value, status.error_message().c_str());
