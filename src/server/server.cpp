@@ -10,11 +10,11 @@
 
 using grpc::Channel;
 using grpc::ClientContext;
+using grpc::CompletionQueue;
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
 using grpc::Status;
-using grpc::CompletionQueue;
 using kvstore::DieRequest;
 using kvstore::Empty;
 using kvstore::GetReponse;
@@ -25,41 +25,43 @@ using kvstore::PutRequest;
 using kvstore::PutResponse;
 using kvstore::ReplicateRequest;
 
-void AsyncReplicationHelper(const ReplicateRequest& request, const std::unique_ptr<KVStore::Stub>& stub) {
-  ClientContext* context = new ClientContext;
-  Empty* response = new Empty;
-  CompletionQueue* cq = new CompletionQueue;
+void AsyncReplicationHelper(const ReplicateRequest &request,
+                            const std::unique_ptr<KVStore::Stub> &stub) {
+  ClientContext *context = new ClientContext;
+  Empty *response = new Empty;
+  CompletionQueue *cq = new CompletionQueue;
   Status status_;
 
   std::cout << "Received ASYNC REPLICATE request with key \n";
   std::cout << request.key() << std::endl;
-  std::cout << "with async forward: " << request.async_forward_to_all() << std::endl;
+  std::cout << "with async forward: " << request.async_forward_to_all()
+            << std::endl;
 
   std::unique_ptr<grpc::ClientAsyncResponseReader<Empty>> rpc(
       stub->AsyncReplicate(context, request, cq));
 
-  rpc->Finish(response, &status_, (void*)1);
+  rpc->Finish(response, &status_, (void *)1);
 
   // Use another thread to poll the CompletionQueue for the result
   std::thread([cq, response, context]() {
-      std::cout << "Finished ASYNC REPLICATE request. \n";
+    std::cout << "Finished ASYNC REPLICATE request. \n";
 
-      void* got_tag;
-      bool ok = false;
+    void *got_tag;
+    bool ok = false;
 
-      // Wait for the result
-      GPR_ASSERT(cq->Next(&got_tag, &ok));
-      GPR_ASSERT(ok);
+    // Wait for the result
+    cq->Next(&got_tag, &ok);
+    // GPR_ASSERT(ok);
 
-      if (ok) {
-          std::cout << "Replication completed." << std::endl;
-      } else {
-          std::cerr << "Replication failed." << std::endl;
-      }
+    if (ok) {
+      std::cout << "Replication completed." << std::endl;
+    } else {
+      std::cerr << "Replication failed." << std::endl;
+    }
 
-      delete response;
-      delete context;
-      delete cq;
+    delete response;
+    delete context;
+    delete cq;
   }).detach();
 }
 
@@ -76,13 +78,13 @@ private:
 
 public:
   KVStoreServiceImpl(std::string &server_address, int total_servers,
-                     bool is_primary) {
+                     bool is_primary)
+      : kvStore(server_address) {
     this->server_address = server_address;
     this->total_servers = total_servers;
     this->is_primary = is_primary;
     this->primary_address = "0.0.0.0:50051";
     this->last_heartbeat = std::chrono::high_resolution_clock::now();
-    kvStore = keyValueStore(server_address);
 
     if (is_primary) {
       InitializeServerStubs();
@@ -98,13 +100,13 @@ public:
     int response_write;
     // response = kvStore.write(request->key().c_str(),
     // request->value().c_str());
-    response_write = kvStore.write(request->key(), request->value(),
-                                   0, old_value);
+    response_write =
+        kvStore.write(request->key(), request->value(), 0, old_value);
     std::cout << response_write << "\n";
 
     if (response_write == 0) {
       // if (is_primary) {
-      //   int sync_replicate_count = 0;        
+      //   int sync_replicate_count = 0;
 
       //   auto it = kvstore_stubs_map.begin();
 
@@ -113,7 +115,8 @@ public:
       //   std::uniform_int_distribution<> random_func(0, total_servers/2);
       //   int rand_server = random_func(gen);
 
-      //   while (sync_replicate_count < total_servers/2 && it != kvstore_stubs_map.end()) {
+      //   while (sync_replicate_count < total_servers/2 && it !=
+      //   kvstore_stubs_map.end()) {
       //     ClientContext context;
       //     Empty response;
       //     ReplicateRequest replicate_request;
@@ -176,20 +179,23 @@ public:
   }
 
   Status Replicate(ServerContext *context, const ReplicateRequest *request,
-             Empty *response) override {
-    
+                   Empty *response) override {
+
     std::cout << "Received REPLICATE request with key \n";
     std::cout << request->key() << std::endl;
-    std::cout << "with async forward: " << request->async_forward_to_all() << std::endl;
+    std::cout << "with async forward: " << request->async_forward_to_all()
+              << std::endl;
 
     std::string old_value;
     int response_write;
 
-    response_write = kvStore.write(request->key(), request->value(), 0, old_value);
+    response_write =
+        kvStore.write(request->key(), request->value(), 0, old_value);
 
     if (response_write == 0 || response_write == 1) {
       if (request->async_forward_to_all()) {
-        for (auto it = kvstore_stubs_map.begin(); it != kvstore_stubs_map.end(); it++)  {
+        for (auto it = kvstore_stubs_map.begin(); it != kvstore_stubs_map.end();
+             it++) {
           ReplicateRequest async_request;
           async_request.set_key(request->key());
           async_request.set_value(request->value());
@@ -198,7 +204,7 @@ public:
         }
       }
       return Status::OK;
-    }    
+    }
     return grpc::Status(grpc::StatusCode::ABORTED, "");
   }
 
