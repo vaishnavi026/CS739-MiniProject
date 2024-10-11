@@ -66,9 +66,9 @@ int main(int argc, char **argv) {
   // // Case 3: Reading value present
   // std::cout << "Test 3 : Reading value present\n";
 
-  char get_value2[2049] = {0};
-  get_result = kv739_get(key, get_value2);
-  std::cout << "Returning get value2 " << get_value2 << std::endl;
+  // char get_value2[2049] = {0};
+  // get_result = kv739_get(key, get_value2);
+  // std::cout << "Returning get value2 " << get_value2 << std::endl;
   // if (get_result == 0) {
   //   if (strcmp(value, get_value2) == 0)
   //     std::cout << "PASS : Reading value present : Expected response 0, "

@@ -58,8 +58,11 @@ int keyValueStore::write(const std::string &key, const std::string &value,
   rocksdb::Status put_status;
   get_status = db->Get(rocksdb::ReadOptions(), key, &old_value);
 
-  std::string new_value = std::to_string(timestamp) + "|" + value;
-  put_status = db->Put(rocksdb::WriteOptions(), key, new_value);
+
+  std::cout<<"Rocksdb: " << key << value << std::endl;
+  // std::string new_value = value;
+  // std::string new_value = std::to_string(timestamp) + "|" + value;
+  put_status = db->Put(rocksdb::WriteOptions(), key, value);
 
   if (!put_status.ok()) {
     std::cerr << "Error putting value: " << put_status.ToString() << std::endl;
