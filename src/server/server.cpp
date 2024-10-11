@@ -41,7 +41,6 @@ public:
     this->total_servers = total_servers;
     this->is_primary = is_primary;
     this->primary_address = "0.0.0.0:50051";
-    this->last_heartbeat = std::chrono::high_resolution_clock::now();
     kvStore = keyValueStore(server_address);
 
     if (is_primary) {
@@ -118,28 +117,31 @@ public:
     while (true) {
       if (is_primary) {
         SendHeartbeats();
-        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
       } else {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
         CheckLastHeartbeat();
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
       }
     }
   }
 
   void CheckLastHeartbeat() {
+    if (last_heartbeat == std::chrono::steady_clock::time_point()) {
+      return;
+    }
     std::chrono::high_resolution_clock::time_point current_time =
         std::chrono::high_resolution_clock::now();
     std::chrono::duration<double, std::milli> duration_milli =
         std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(
             current_time - last_heartbeat);
     std::cout << "Last heartbeat " << duration_milli.count() << std::endl;
-    // if (duration_milli.count() > 300) {
-    //   std::unique_lock<std::mutex> primary_lock(change_primary);
-    //   this->primary_address = server_address;
-    //   this->is_primary = true;
-    //   InitializeServerStubs();
-    //   SendHeartbeats();
-    // }
+    if (duration_milli.count() > 300) {
+      std::unique_lock<std::mutex> primary_lock(change_primary);
+      this->primary_address = server_address;
+      this->is_primary = true;
+      InitializeServerStubs();
+      SendHeartbeats();
+    }
   }
 
   void SendHeartbeats() {
@@ -189,7 +191,6 @@ void RunServer(std::string &server_address, int total_servers) {
   }
 
   std::thread t1(&KVStoreServiceImpl::HeartbeatMechanism, &service);
-
   std::cout << "Server started at " << server_address << std::endl;
   server->Wait();
 
