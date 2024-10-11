@@ -13,14 +13,13 @@ private:
 
 public:
   // Constructor and Destructor
-  keyValueStore() {};
   keyValueStore(std::string &server_address);
   ~keyValueStore();
 
   // Member functions to get and put key-value pairs
   int read(const std::string &key, std::string &value);
-  int write(const std::string &key, const std::string &value,  std::uint64_t timestamp, 
-            std::string &old_value);
+  int write(const std::string &key, const std::string &value,
+            std::uint64_t timestamp, std::string &old_value);
 };
 
 #endif // KEYVALUESTORE_H

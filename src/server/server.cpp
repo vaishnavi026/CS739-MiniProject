@@ -36,12 +36,12 @@ private:
 
 public:
   KVStoreServiceImpl(std::string &server_address, int total_servers,
-                     bool is_primary) {
+                     bool is_primary)
+      : kvStore(server_address) {
     this->server_address = server_address;
     this->total_servers = total_servers;
     this->is_primary = is_primary;
     this->primary_address = "0.0.0.0:50051";
-    kvStore = keyValueStore(server_address);
 
     if (is_primary) {
       InitializeServerStubs();
