@@ -27,7 +27,8 @@ bool parseValue(const std::string combined_value, uint64_t &timestamp,
                 std::string &value) {
   // Get delimited position
   size_t delimiter_pos = combined_value.find('|');
-  // std::cout << "Combined value " << combined_value << "  " << std::to_string(delimiter_pos) << std::endl;
+  // std::cout << "Combined value " << combined_value << "  " <<
+  // std::to_string(delimiter_pos) << std::endl;
   if (delimiter_pos != std::string::npos && delimiter_pos > 0 &&
       delimiter_pos < combined_value.size() - 1) {
     timestamp =
@@ -40,7 +41,6 @@ bool parseValue(const std::string combined_value, uint64_t &timestamp,
   std::cerr << "Error: Invalid format for combined value" << std::endl;
   return false;
 }
-
 
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
@@ -72,15 +72,20 @@ public:
     // std::cout << "Received PUT request with key, value \n";
     // std::cout << request->key() << " " << request->value() << std::endl;
 
-    std::string old_value;
+    std::string old_timestamp_and_value;
     int response_write;
     // response = kvStore.write(request->key().c_str(),
     // request->value().c_str());
-    response_write = kvStore.write(request->key(), request->value(),
-                                   request->timestamp(), old_value);
+    response_write =
+        kvStore.write(request->key(), request->value(), request->timestamp(),
+                      old_timestamp_and_value);
     // std::cout << response_write << "\n";
 
     if (response_write == 0) {
+      std::string old_value;
+      uint64_t timestamp;
+      bool parseSuccessful =
+          parseValue(old_timestamp_and_value, timestamp, old_value);
       return grpc::Status(grpc::StatusCode::ALREADY_EXISTS, old_value);
     } else if (response_write == 1) {
       return Status::OK;
@@ -97,11 +102,11 @@ public:
     int response_read;
 
     response_read = kvStore.read(request->key(), timestamp_and_value);
-    std::string value;
-    uint64_t timestamp;
-    bool parseSuccessful = parseValue(timestamp_and_value, timestamp, value);
 
     if (response_read == 0) {
+      std::string value;
+      uint64_t timestamp;
+      bool parseSuccessful = parseValue(timestamp_and_value, timestamp, value);
       response->set_value(value);
       response->set_timestamp(timestamp);
       return Status::OK;

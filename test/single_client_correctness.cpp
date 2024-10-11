@@ -5,12 +5,13 @@
 int main(int argc, char **argv) {
 
   std::string server_name = "0.0.0.0:50051";
+  std::string config_file = "server_connection.txt";
 
   if (argc > 1) {
     server_name = argv[1];
   }
 
-  if (kv739_init((char *)server_name.data()) != 0) {
+  if (kv739_init((char *)config_file.data()) != 0) {
     return -1;
   }
 

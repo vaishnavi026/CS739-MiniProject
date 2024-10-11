@@ -152,7 +152,7 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> random_func(1, servers.size() - 1);
+  std::uniform_int_distribution<> random_func(0, servers.size() - 1);
   int rand_server = random_func(gen);
 
   if (!kvstore_map[servers[rand_server]]) {
