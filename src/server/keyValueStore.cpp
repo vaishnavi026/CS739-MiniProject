@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 keyValueStore::keyValueStore(std::string &server_address) {
   options.create_if_missing = true;
   std::string db_name = "rocksdb_" + server_address;
@@ -41,7 +40,7 @@ int keyValueStore::write(const std::string &key, const std::string &value,
   rocksdb::Status get_status;
   rocksdb::Status put_status;
   get_status = db->Get(rocksdb::ReadOptions(), key, &old_value);
-  std::cout << "Old value is " << old_value << std::endl;
+  // std::cout << "Old value is " << old_value << std::endl;
   std::string new_value = std::to_string(timestamp) + "|" + value;
   put_status = db->Put(rocksdb::WriteOptions(), key, new_value);
 

@@ -81,16 +81,20 @@ public:
                       old_timestamp_and_value);
     // std::cout << response_write << "\n";
 
+    if (response_write == -1) {
+      return grpc::Status(grpc::StatusCode::ABORTED, "");
+    }
+
     if (response_write == 0) {
       std::string old_value;
       uint64_t timestamp;
       bool parseSuccessful =
           parseValue(old_timestamp_and_value, timestamp, old_value);
-      return grpc::Status(grpc::StatusCode::ALREADY_EXISTS, old_value);
-    } else if (response_write == 1) {
-      return Status::OK;
+      response->set_message(old_value);
     }
-    return grpc::Status(grpc::StatusCode::ABORTED, "");
+
+    response->set_code(response_write);
+    return Status::OK;
   }
 
   Status Get(ServerContext *context, const GetRequest *request,
@@ -103,17 +107,21 @@ public:
 
     response_read = kvStore.read(request->key(), timestamp_and_value);
 
+    if (response_read == -1) {
+      return grpc::Status(grpc::StatusCode::ABORTED, "");
+    }
+
+    response->set_code(response_read);
+
     if (response_read == 0) {
       std::string value;
       uint64_t timestamp;
       bool parseSuccessful = parseValue(timestamp_and_value, timestamp, value);
       response->set_value(value);
       response->set_timestamp(timestamp);
-      return Status::OK;
-    } else if (response_read == 1) {
-      return grpc::Status(grpc::StatusCode::NOT_FOUND, "");
     }
-    return grpc::Status(grpc::StatusCode::ABORTED, "");
+
+    return Status::OK;
   }
 
   Status Die(ServerContext *context, const DieRequest *request,

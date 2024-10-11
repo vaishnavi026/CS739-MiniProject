@@ -137,15 +137,18 @@ int kv739_get(char *key, char *value) {
   Status status =
       kvstore_map[servers[rand_server]]->Get(&context, request, &response);
 
-  if (status.ok()) {
-    strcpy(value, response.value().c_str());
-    return 0;
-  } else if (status.error_code() == grpc::StatusCode::NOT_FOUND) {
-    return 1;
-  } else {
+  if (!status.ok()) {
     std::cerr << "Server Get failed: " << status.error_message() << "\n";
     return -1;
   }
+
+  int response_code = response.code();
+
+  if (response_code == 0) {
+    strcpy(value, response.value().c_str());
+    return 0;
+  }
+  return response_code;
 }
 
 int kv739_put(char *key, char *value, char *old_value) {
@@ -172,15 +175,17 @@ int kv739_put(char *key, char *value, char *old_value) {
     Status status =
         kvstore_map[servers[rand_server]]->Put(&context, request, &response);
 
-    if (status.error_code() == grpc::StatusCode::ALREADY_EXISTS) {
-      strcpy(old_value, status.error_message().c_str());
-      return 0;
-    } else if (status.ok()) {
-      return 1;
-    } else {
+    if (!status.ok()) {
       std::cerr << "Server Put failed: " << status.error_message() << "\n";
       return -1;
     }
+
+    int response_code = response.code();
+
+    if (response_code == 0) {
+      strcpy(old_value, response.message().c_str());
+    }
+    return response_code;
   } else {
     std::cerr << "Key or Value does not meet the conditions set forth"
               << std::endl;
