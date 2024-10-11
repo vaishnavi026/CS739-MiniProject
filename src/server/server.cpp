@@ -10,6 +10,7 @@
 
 using grpc::Channel;
 using grpc::ClientContext;
+using grpc::CompletionQueue;
 using grpc::Server;
 using grpc::ServerBuilder;
 using grpc::ServerContext;
@@ -22,6 +23,7 @@ using kvstore::HeartbeatMessage;
 using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
+using kvstore::ReplicateRequest;
 
 bool parseValue(const std::string combined_value, uint64_t &timestamp,
                 std::string &value) {
@@ -40,6 +42,46 @@ bool parseValue(const std::string combined_value, uint64_t &timestamp,
 
   std::cerr << "Error: Invalid format for combined value" << std::endl;
   return false;
+}
+
+void AsyncReplicationHelper(const ReplicateRequest &request,
+                            const std::unique_ptr<KVStore::Stub> &stub) {
+  ClientContext *context = new ClientContext;
+  Empty *response = new Empty;
+  CompletionQueue *cq = new CompletionQueue;
+  Status status_;
+
+  std::cout << "Received ASYNC REPLICATE request with key \n";
+  std::cout << request.key() << std::endl;
+  std::cout << "with async forward: " << request.async_forward_to_all()
+            << std::endl;
+
+  std::unique_ptr<grpc::ClientAsyncResponseReader<Empty>> rpc(
+      stub->AsyncReplicate(context, request, cq));
+
+  rpc->Finish(response, &status_, (void *)1);
+
+  // Use another thread to poll the CompletionQueue for the result
+  std::thread([cq, response, context]() {
+    std::cout << "Finished ASYNC REPLICATE request. \n";
+
+    void *got_tag;
+    bool ok = false;
+
+    // Wait for the result
+    cq->Next(&got_tag, &ok);
+    // GPR_ASSERT(ok);
+
+    if (ok) {
+      std::cout << "Replication completed." << std::endl;
+    } else {
+      std::cerr << "Replication failed." << std::endl;
+    }
+
+    delete response;
+    delete context;
+    delete cq;
+  }).detach();
 }
 
 class KVStoreServiceImpl final : public KVStore::Service {
@@ -85,6 +127,38 @@ public:
       return grpc::Status(grpc::StatusCode::ABORTED, "");
     }
 
+    if (is_primary) {
+      int sync_replicate_count = 0;
+
+      auto it = kvstore_stubs_map.begin();
+
+      std::random_device rd;
+      std::mt19937 gen(rd());
+      std::uniform_int_distribution<> random_func(0, total_servers/2);
+      int rand_server = random_func(gen);
+
+      while (sync_replicate_count < total_servers/2 && it !=
+      kvstore_stubs_map.end()) {
+        ClientContext context;
+        Empty response;
+        ReplicateRequest replicate_request;
+        replicate_request.set_key(request->key());
+        replicate_request.set_value(request->value());
+
+        if (sync_replicate_count == rand_server) {
+          replicate_request.set_async_forward_to_all(true);
+
+        } else {
+          replicate_request.set_async_forward_to_all(false);
+        }
+
+        it->second->Replicate(&context, replicate_request, &response);
+
+        it++;
+        sync_replicate_count++;
+      }
+    }
+    
     if (response_write == 0) {
       std::string old_value;
       uint64_t timestamp;
@@ -134,6 +208,36 @@ public:
       std::cout << "Server killed";
     }
     exit(1);
+  }
+
+  Status Replicate(ServerContext *context, const ReplicateRequest *request,
+                   Empty *response) override {
+
+    std::cout << "Received REPLICATE request with key \n";
+    std::cout << request->key() << std::endl;
+    std::cout << "with async forward: " << request->async_forward_to_all()
+              << std::endl;
+
+    std::string old_value;
+    int response_write;
+
+    response_write =
+        kvStore.write(request->key(), request->value(), 0, old_value);
+
+    if (response_write == 0 || response_write == 1) {
+      if (request->async_forward_to_all()) {
+        for (auto it = kvstore_stubs_map.begin(); it != kvstore_stubs_map.end();
+             it++) {
+          ReplicateRequest async_request;
+          async_request.set_key(request->key());
+          async_request.set_value(request->value());
+          async_request.set_async_forward_to_all(false);
+          AsyncReplicationHelper(async_request, it->second);
+        }
+      }
+      return Status::OK;
+    }
+    return grpc::Status(grpc::StatusCode::ABORTED, "");
   }
 
   Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,

@@ -6,7 +6,7 @@ service KVStore {
     rpc Put(PutRequest) returns (PutResponse);
     rpc Get(GetRequest) returns (GetReponse);
     rpc Heartbeat(HeartbeatMessage) returns (Empty);
-    rpc Replicate(PutRequest) returns (Empty);
+    rpc Replicate(ReplicateRequest) returns (Empty);
     rpc Die(DieRequest) returns (Empty);
 }
 
@@ -34,6 +34,12 @@ message PutResponse {
 message HeartbeatMessage {
     string primary = 1;
     uint64 timestamp = 2;
+}
+
+message ReplicateRequest {
+    string key = 1;
+    string value = 2;
+    bool async_forward_to_all = 3;
 }
 
 message DieRequest {
