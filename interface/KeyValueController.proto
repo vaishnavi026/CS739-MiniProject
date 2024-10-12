@@ -14,10 +14,12 @@ message PutRequest {
     string key = 1;
     string value = 2;
     uint64 timestamp = 3;
+    bool isClientRequest = 4;
 }
 
 message GetRequest {
     string key = 1;
+    bool isClientRequest = 2;
 }
 
 message GetReponse {
