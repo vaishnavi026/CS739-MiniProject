@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-keyValueStore::keyValueStore(std::string &server_address) {
+keyValueStore::keyValueStore(std::string &server_address){
   options.create_if_missing = true;
   std::string db_name = "rocksdb_" + server_address;
   rocksdb::Status status = rocksdb::DB::Open(options, db_name, &db);
@@ -55,3 +55,38 @@ int keyValueStore::write(const std::string &key, const std::string &value,
 
   return 0;
 }
+
+void ConsistentHashing::addServer(const std::string &server_name) {
+  for (int i = 0; i < virtualServers_; ++i) {
+      std::string virtualServerName = server_name + "-" + std::to_string(i);
+      std::size_t hash = hash_fn(virtualServerName);
+      ring_[hash] = server_name;
+  }
+}
+
+void ConsistentHashing::removeServer(const std::string &server_name) {
+  for (int i = 0; i < virtualServers_; ++i) {
+      std::string virtualServerName = server_name + "-" + std::to_string(i);
+      std::size_t hash = hash_fn(virtualServerName);
+      ring_.erase(hash);
+  }
+}
+
+std::string ConsistentHashing::getServer(const std::string &key) {
+
+  if (ring_.empty()) {
+      std::cerr << "No consisent hashing ring" << std::endl;
+      exit(1);
+  }
+
+  std::size_t hash = hash_fn(key);
+  auto it = ring_.lower_bound(hash);
+
+  if (it == ring_.end()) {
+      it = ring_.begin();
+  }
+
+  return it->second;
+}
+
+

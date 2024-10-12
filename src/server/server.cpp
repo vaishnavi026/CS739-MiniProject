@@ -88,25 +88,34 @@ class KVStoreServiceImpl final : public KVStore::Service {
 private:
   std::mutex change_primary;
   keyValueStore kvStore;
+  ConsistentHashing CH;
   std::string server_address;
   int total_servers;
+  int virtual_servers_for_ch;
   bool is_primary;
   std::string primary_address;
   std::map<std::string, std::unique_ptr<KVStore::Stub>> kvstore_stubs_map;
   std::chrono::high_resolution_clock::time_point last_heartbeat;
 
 public:
-  KVStoreServiceImpl(std::string &server_address, int total_servers,
+  KVStoreServiceImpl(std::string &server_address, int total_servers,int virtual_servers_for_ch,
                      bool is_primary)
-      : kvStore(server_address) {
+      : kvStore(server_address),CH(virtual_servers_for_ch) {
     this->server_address = server_address;
     this->total_servers = total_servers;
+    this->virtual_servers_for_ch = virtual_servers_for_ch;
     this->is_primary = is_primary;
     this->primary_address = "0.0.0.0:50051";
 
     if (is_primary) {
       InitializeServerStubs();
     }
+
+    for (int port = 50051; port < 50051 + total_servers; port++) {
+      std::string address("0.0.0.0:" + std::to_string(port));
+      CH.addServer(address);
+    }
+
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -310,11 +319,11 @@ public:
   }
 };
 
-void RunServer(std::string &server_address, int total_servers) {
+void RunServer(std::string &server_address, int total_servers,int virtual_servers_for_ch) {
   int port = std::stoi(server_address.substr(server_address.find(":") + 1,
                                              server_address.size()));
   bool is_primary = port == 50051;
-  KVStoreServiceImpl service(server_address, total_servers, is_primary);
+  KVStoreServiceImpl service(server_address, total_servers, virtual_servers_for_ch, is_primary);
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
@@ -341,6 +350,6 @@ int main(int argc, char **argv) {
     total_servers = std::atoi(argv[2]);
   }
 
-  RunServer(server_address, total_servers);
+  RunServer(server_address, total_servers, 3);
   return 0;
 }
