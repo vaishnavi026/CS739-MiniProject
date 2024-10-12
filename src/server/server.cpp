@@ -25,6 +25,17 @@ using kvstore::PutRequest;
 using kvstore::PutResponse;
 using kvstore::ReplicateRequest;
 
+int getPortNumber(const std::string &address)
+{
+    size_t colon_pos = address.find(':');
+    if (colon_pos == std::string::npos)
+    {
+        throw std::invalid_argument("Invalid address format.");
+    }
+
+    return std::stoi(address.substr(colon_pos + 1));
+}
+
 bool parseValue(const std::string combined_value, uint64_t &timestamp,
                 std::string &value)
 {
@@ -45,6 +56,8 @@ bool parseValue(const std::string combined_value, uint64_t &timestamp,
     std::cerr << "Error: Invalid format for combined value" << std::endl;
     return false;
 }
+
+
 
 void AsyncReplicationHelper(const ReplicateRequest &request,
                             const std::unique_ptr<KVStore::Stub> &stub)
@@ -99,12 +112,13 @@ private:
     int virtual_servers_for_ch;
     bool is_primary;
     std::string primary_address;
+    int replication_factor;
     std::map<std::string, std::unique_ptr<KVStore::Stub>> kvstore_stubs_map;
     std::chrono::high_resolution_clock::time_point last_heartbeat;
 
 public:
     KVStoreServiceImpl(std::string &server_address, int total_servers,
-                       int virtual_servers_for_ch, bool is_primary)
+                       int virtual_servers_for_ch, bool is_primary, int replication_factor)
         : kvStore(server_address), CH(virtual_servers_for_ch)
     {
         this->server_address = server_address;
@@ -112,7 +126,7 @@ public:
         this->virtual_servers_for_ch = virtual_servers_for_ch;
         this->is_primary = is_primary;
         this->primary_address = "0.0.0.0:50051";
-
+        this->replication_factor = replication_factor;
         if (is_primary)
         {
             InitializeServerStubs();
@@ -192,12 +206,12 @@ public:
     Status Get(ServerContext *context, const GetRequest *request,
                GetReponse *response) override
     {
-        if (request->isClientRequest)
+        if (request->is_client_request())
         {
 
             int successful_servers_read = 0;
-            int R = (replication_factor + 1) / 2;
-            string server_address = CH.getServer(request->key);
+            int R = (replication_factor + 1)  / 2;
+            std::string server_address = CH.getServer(request->key());
             int port = getPortNumber(server_address);
             int request_count = 0;
             uint64_t latest_timestamp = 0; // keep track of latest read
@@ -209,10 +223,14 @@ public:
                 port++;
                 std::string value;
                 uint64_t timestamp;
-                request->isClientRequest = false;
+                ClientContext context_server_get;
+                GetRequest get_request_for_servers;
+                get_request_for_servers.set_is_client_request(false);
+                get_request_for_servers.set_key(request->key());
+                
                 GetReponse server_read_response;
-                Status status = kvstore_stubs_map[address]->Get(context, request, &server_read_response);
-                if (status.ok && server_read_response.code() == 0)
+                Status status = kvstore_stubs_map[address]->Get(&context_server_get, get_request_for_servers, &server_read_response);
+                if (status.ok() && server_read_response.code() == 0)
                 {
                     value = server_read_response.value();
                     timestamp = server_read_response.timestamp();
@@ -238,12 +256,13 @@ public:
                 if (timestamp < latest_timestamp)
                 {
                     PutRequest put_request;
+                    ClientContext put_request_context;
                     put_request.set_key(request->key());
                     put_request.set_value(latest_value);
                     put_request.set_timestamp(latest_timestamp);
                     PutResponse put_response;
-                    Status put_status = kvstore_stubs_map[address]->Put(context, &put_request, &put_response);
-                    if (!put_status.ok)
+                    Status put_status = kvstore_stubs_map[address]->Put(&put_request_context, put_request, &put_response);
+                    if (!put_status.ok())
                     {
                         std::cerr << "Failed to update server at " << address << std::endl;
                     }
@@ -311,16 +330,6 @@ public:
             return Status::OK;
         }
         return grpc::Status(grpc::StatusCode::ABORTED, "");
-    }
-
-    Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
-                     Empty *response) override
-    {
-        // std::cout << "Received Heartbeat" << std::endl;
-        std::unique_lock<std::mutex> primary_lock(change_primary);
-        this->last_heartbeat = std::chrono::high_resolution_clock::now();
-        this->primary_address = request->primary();
-        return Status::OK;
     }
 
     Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
@@ -415,7 +424,7 @@ void RunServer(std::string &server_address, int total_servers,
                                                server_address.size()));
     bool is_primary = port == 50051;
     KVStoreServiceImpl service(server_address, total_servers,
-                               virtual_servers_for_ch, is_primary);
+                               virtual_servers_for_ch, is_primary, 3);
 
     ServerBuilder builder;
     builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
