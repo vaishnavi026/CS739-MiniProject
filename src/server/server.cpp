@@ -98,9 +98,9 @@ private:
   std::chrono::high_resolution_clock::time_point last_heartbeat;
 
 public:
-  KVStoreServiceImpl(std::string &server_address, int total_servers,int virtual_servers_for_ch,
-                     bool is_primary)
-      : kvStore(server_address),CH(virtual_servers_for_ch) {
+  KVStoreServiceImpl(std::string &server_address, int total_servers,
+                     int virtual_servers_for_ch, bool is_primary)
+      : kvStore(server_address), CH(virtual_servers_for_ch) {
     this->server_address = server_address;
     this->total_servers = total_servers;
     this->virtual_servers_for_ch = virtual_servers_for_ch;
@@ -115,7 +115,6 @@ public:
       std::string address("0.0.0.0:" + std::to_string(port));
       CH.addServer(address);
     }
-
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -143,11 +142,11 @@ public:
 
       std::random_device rd;
       std::mt19937 gen(rd());
-      std::uniform_int_distribution<> random_func(0, total_servers/2);
+      std::uniform_int_distribution<> random_func(0, total_servers / 2);
       int rand_server = random_func(gen);
 
-      while (sync_replicate_count < total_servers/2 && it !=
-      kvstore_stubs_map.end()) {
+      while (sync_replicate_count < total_servers / 2 &&
+             it != kvstore_stubs_map.end()) {
         ClientContext context;
         Empty response;
         ReplicateRequest replicate_request;
@@ -167,7 +166,7 @@ public:
         sync_replicate_count++;
       }
     }
-    
+
     if (response_write == 0) {
       std::string old_value;
       uint64_t timestamp;
@@ -319,11 +318,13 @@ public:
   }
 };
 
-void RunServer(std::string &server_address, int total_servers,int virtual_servers_for_ch) {
+void RunServer(std::string &server_address, int total_servers,
+               int virtual_servers_for_ch) {
   int port = std::stoi(server_address.substr(server_address.find(":") + 1,
                                              server_address.size()));
   bool is_primary = port == 50051;
-  KVStoreServiceImpl service(server_address, total_servers, virtual_servers_for_ch, is_primary);
+  KVStoreServiceImpl service(server_address, total_servers,
+                             virtual_servers_for_ch, is_primary);
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
