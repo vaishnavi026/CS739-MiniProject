@@ -99,8 +99,6 @@ void AsyncReplicationHelper(const ReplicateRequest &request,
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
   std::mutex change_primary;
-  std::mutex put_map_mutex;
-  std::mutex put_response_mutex;
   keyValueStore kvStore;
   ConsistentHashing CH;
   std::string server_address;
@@ -165,15 +163,17 @@ public:
             std::chrono::high_resolution_clock::now().time_since_epoch())
             .count();
 
+    std::mutex put_map_mutex;
+    std::mutex put_response_mutex;
     std::unordered_set<int> replicate_servers_tried;
     std::vector<std::pair<std::string, uint64_t>> response_values;
 
     std::vector<std::thread> put_threads;
     for (int i = 0; i < write_quorum; i++) {
-      put_threads.emplace_back(&KVStoreServiceImpl::WriteToServer, this,
-                               server_port + i, key, value, timestamp,
-                               std::ref(replicate_servers_tried),
-                               std::ref(response_values));
+      put_threads.emplace_back(
+          &KVStoreServiceImpl::WriteToServer, this, server_port + i, key, value,
+          timestamp, std::ref(put_map_mutex), std::ref(put_response_mutex),
+          std::ref(replicate_servers_tried), std::ref(response_values));
     }
 
     for (auto &t : put_threads) {
@@ -201,7 +201,9 @@ public:
 
   void WriteToServer(
       int server_port, const std::string &key, const std::string &value,
-      uint64_t timestamp, std::unordered_set<int> &replicate_servers_tried,
+      uint64_t timestamp, std::mutex &put_map_mutex,
+      std::mutex &put_response_mutex,
+      std::unordered_set<int> &replicate_servers_tried,
       std::vector<std::pair<std::string, uint64_t>> &response_values) {
     std::string server_address("0.0.0.0:" + std::to_string(server_port));
     ClientContext context_server_put;
@@ -261,12 +263,12 @@ public:
       put_response_mutex.unlock();
     }
   }
-  void
-  fetchServerData(int port, const std::string &key, std::mutex &mtx,
-                  std::mutex &value_mtx, std::atomic<uint64_t> &latest_timestamp,
-                  std::string &latest_value,
-                  std::unordered_map<std::string, uint64_t> &server_timestamps,
-                  std::unordered_set<int> &replicate_servers_tried) {
+
+  void fetchServerData(
+      int port, const std::string &key, std::mutex &mtx, std::mutex &value_mtx,
+      std::atomic<uint64_t> &latest_timestamp, std::string &latest_value,
+      std::unordered_map<std::string, uint64_t> &server_timestamps,
+      std::unordered_set<int> &replicate_servers_tried) {
     std::string address("0.0.0.0:" + std::to_string(port));
     grpc::ClientContext context_server_get;
     GetReponse get_response;
@@ -285,7 +287,7 @@ public:
       int next_server_port;
       {
         std::lock_guard<std::mutex> lock(mtx);
-        next_server_port  = port + 1;
+        next_server_port = port + 1;
         while (next_server_port < 50051 + total_servers &&
                !replicate_servers_tried.contains(next_server_port)) {
           next_server_port += 1;
