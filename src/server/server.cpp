@@ -220,22 +220,37 @@ public:
 
     Status status = kvstore_stubs_map[server_address]->Put(
         &context_server_put, replica_put_request, &replica_put_response);
+    int requests_tried = 1;
 
-    while (!status.ok()) {
+    while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
       int next_server_port = server_port + 1;
+      if (next_server_port > 50051 + total_servers) {
+        next_server_port = 50051;
+      }
+      bool complete_rev = false;
+
       {
         std::lock_guard<std::mutex> lock(put_map_mutex);
-        while (next_server_port < 50051 + total_servers &&
+        while (!complete_rev &&
                !replicate_servers_tried.contains(next_server_port)) {
           next_server_port += 1;
+          if (next_server_port > 50051 + total_servers) {
+            if (complete_rev) {
+              return;
+            }
+            next_server_port = 50051;
+            complete_rev = true;
+          }
         }
         replicate_servers_tried.insert(next_server_port);
       }
+
       server_address = "0.0.0.0:" + std::to_string(next_server_port);
 
       status = kvstore_stubs_map[server_address]->Put(
           &context_server_put, replica_put_request, &replica_put_response);
+      requests_tried++;
     }
 
     int response_code = replica_put_response.code();
