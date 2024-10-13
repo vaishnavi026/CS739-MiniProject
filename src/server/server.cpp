@@ -154,7 +154,8 @@ public:
       }
       return Status::OK;
     }
-
+    std::cout << "Received client put key, value = " << key << " " << value
+              << std::endl;
     std::string hashed_server = CH.getServer(key);
     int server_port = getPortNumber(hashed_server);
 
@@ -259,9 +260,10 @@ public:
       }
 
       server_address = "0.0.0.0:" + std::to_string(next_server_port);
-
-      status = kvstore_stubs_map[server_address]->Put(
-          &context_server_put, replica_put_request, &replica_put_response);
+      ClientContext context_server_put_retry;
+      status = kvstore_stubs_map[server_address]->Put(&context_server_put_retry,
+                                                      replica_put_request,
+                                                      &replica_put_response);
       requests_tried++;
     }
 

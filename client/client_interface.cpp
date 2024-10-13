@@ -109,6 +109,7 @@ int kv739_get(char *key, char *value) {
     return -1;
   }
   request.set_key(key);
+  request.set_is_client_request(true);
   GetReponse response;
   ClientContext context;
   Status status =
@@ -138,6 +139,7 @@ int kv739_put(char *key, char *value, char *old_value) {
   if (is_valid_key(key) && is_valid_value(value)) {
     request.set_key(key);
     request.set_value(value);
+    request.set_is_client_request(true);
     PutResponse response;
     ClientContext context;
     Status status =
