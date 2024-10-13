@@ -181,16 +181,6 @@ public:
       t.join();
     }
 
-    ReplicateRequest async_request;
-    async_request.set_key(key);
-    async_request.set_value(value);
-    async_request.set_timestamp(timestamp);
-    async_request.set_async_forward_to_all(false);
-
-    for (const auto &pair : kvstore_stubs_map) {
-      AsyncReplicationHelper(async_request, pair.second);
-    }
-
     std::string old_value;
     uint64_t most_recent_timestamp = 0;
 
@@ -207,6 +197,19 @@ public:
     } else {
       response->set_code(1);
     }
+
+    ReplicateRequest async_request;
+    async_request.set_key(key);
+    async_request.set_value(value);
+    async_request.set_timestamp(timestamp);
+    async_request.set_async_forward_to_all(false);
+
+    for (const auto &pair : kvstore_stubs_map) {
+      if (!replicate_servers_tried.contains(getPortNumber(pair.first))) {
+        AsyncReplicationHelper(async_request, pair.second);
+      }
+    }
+
     return Status::OK;
   }
 
