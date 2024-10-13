@@ -219,8 +219,8 @@ public:
       std::mutex &put_response_mutex,
       std::unordered_set<int> &replicate_servers_tried,
       std::vector<std::pair<std::string, uint64_t>> &response_values) {
-    if (server_port > 50051 + total_servers) {
-      server_port = 50051 + (server_port % total_servers);
+    if (server_port >= 50051 + total_servers) {
+      server_port = 50051 + (server_port % 50051);
     }
     std::string server_address("0.0.0.0:" + std::to_string(server_port));
     ClientContext context_server_put;
@@ -244,7 +244,7 @@ public:
     while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
       int next_server_port = server_port + 1;
-      if (next_server_port > 50051 + total_servers) {
+      if (next_server_port >= 50051 + total_servers) {
         next_server_port = 50051;
       }
       bool complete_rev = false;
@@ -254,7 +254,7 @@ public:
         while (!complete_rev &&
                !replicate_servers_tried.contains(next_server_port)) {
           next_server_port += 1;
-          if (next_server_port > 50051 + total_servers) {
+          if (next_server_port >= 50051 + total_servers) {
             if (complete_rev) {
               return;
             }
@@ -307,7 +307,7 @@ public:
     while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
       int next_server_port = port + 1;
-      if (next_server_port > 50051 + total_servers) {
+      if (next_server_port >= 50051 + total_servers) {
         next_server_port = 50051;
       }
       bool complete_rev = false;
@@ -316,7 +316,7 @@ public:
         while (!complete_rev &&
                !replicate_servers_tried.contains(next_server_port)) {
           next_server_port += 1;
-          if (next_server_port > 50051 + total_servers) {
+          if (next_server_port >= 50051 + total_servers) {
             if (complete_rev) {
               return;
             }
@@ -362,7 +362,7 @@ public:
       std::vector<std::thread> get_threads;
 
       for (int i = 0; i < write_quorum; i++) {
-        int target_port = (port + i) % total_servers;
+        int target_port = (port + i) % 50051;
         get_threads.emplace_back(
             &KVStoreServiceImpl::fetchServerData, this, target_port,
             request->key(), std::ref(mtx), std::ref(value_mtx),
