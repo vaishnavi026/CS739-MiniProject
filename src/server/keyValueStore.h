@@ -16,7 +16,6 @@ private:
   std::hash<std::string> hash_fn;
 
 public:
-  ConsistentHashing() {};
   ConsistentHashing(int virtualServers) : virtualServers_(virtualServers) {};
   void addServer(const std::string &server_name);
   void removeServer(const std::string &server_name);

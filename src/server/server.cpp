@@ -8,6 +8,8 @@
 #include <random>
 #include <string>
 #include <thread>
+#include <unordered_set>
+#include <vector>
 
 using grpc::Channel;
 using grpc::ClientContext;
@@ -97,6 +99,8 @@ void AsyncReplicationHelper(const ReplicateRequest &request,
 class KVStoreServiceImpl final : public KVStore::Service {
 private:
   std::mutex change_primary;
+  std::mutex put_map_mutex;
+  std::mutex put_response_mutex;
   keyValueStore kvStore;
   ConsistentHashing CH;
   std::string server_address;
@@ -105,6 +109,8 @@ private:
   bool is_primary;
   std::string primary_address;
   int replication_factor;
+  int write_quorum;
+  //   std::atomic_int writes_completed;
   std::map<std::string, std::unique_ptr<KVStore::Stub>> kvstore_stubs_map;
   std::chrono::high_resolution_clock::time_point last_heartbeat;
 
@@ -119,70 +125,126 @@ public:
     this->is_primary = is_primary;
     this->primary_address = "0.0.0.0:50051";
     this->replication_factor = replication_factor;
-    if (is_primary) {
-      InitializeServerStubs();
-    }
-
-    for (int port = 50051; port < 50051 + total_servers; port++) {
-      std::string address("0.0.0.0:" + std::to_string(port));
-      CH.addServer(address);
-    }
+    this->write_quorum = (replication_factor + 1) / 2;
+    InitializeServerStubs();
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
+    std::string key = request->key();
+    std::string value = request->value();
+    uint64_t timestamp = request->timestamp();
 
-    std::string old_timestamp_and_value;
-    int response_write;
-    response_write =
-        kvStore.write(request->key(), request->value(), request->timestamp(),
-                      old_timestamp_and_value);
+    if (!request->is_client_request()) {
+      std::string old_timestamp_and_value;
+      int response_write =
+          kvStore.write(key, value, timestamp, old_timestamp_and_value);
 
-    if (response_write == -1) {
-      return grpc::Status(grpc::StatusCode::ABORTED, "");
+      if (response_write == -1) {
+        return grpc::Status(grpc::StatusCode::ABORTED, "");
+      }
+
+      response->set_code(response_write);
+
+      if (response_write == 0) {
+        std::string old_value;
+        uint64_t timestamp;
+        bool parseSuccessful =
+            parseValue(old_timestamp_and_value, timestamp, old_value);
+        response->set_message(old_value);
+        response->set_timestamp(timestamp);
+      }
+      return Status::OK;
     }
 
-    if (is_primary) {
-      int sync_replicate_count = 0;
+    std::string hashed_server = CH.getServer(key);
+    int server_port = getPortNumber(hashed_server);
 
-      auto it = kvstore_stubs_map.begin();
+    timestamp =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::high_resolution_clock::now().time_since_epoch())
+            .count();
 
-      std::random_device rd;
-      std::mt19937 gen(rd());
-      std::uniform_int_distribution<> random_func(0, total_servers / 2);
-      int rand_server = random_func(gen);
+    std::unordered_set<int> replicate_servers_tried;
+    std::vector<std::pair<std::string, uint64_t>> response_values;
 
-      while (sync_replicate_count < total_servers / 2 &&
-             it != kvstore_stubs_map.end()) {
-        ClientContext context;
-        Empty response;
-        ReplicateRequest replicate_request;
-        replicate_request.set_key(request->key());
-        replicate_request.set_value(request->value());
+    std::vector<std::thread> put_threads;
+    for (int i = 0; i < write_quorum; i++) {
+      put_threads.emplace_back(&KVStoreServiceImpl::WriteToServer, this,
+                               server_port + i, key, value, timestamp,
+                               std::ref(replicate_servers_tried),
+                               std::ref(response_values));
+    }
 
-        if (sync_replicate_count == rand_server) {
-          replicate_request.set_async_forward_to_all(true);
-        } else {
-          replicate_request.set_async_forward_to_all(false);
-        }
+    for (auto &t : put_threads) {
+      t.join();
+    }
 
-        it->second->Replicate(&context, replicate_request, &response);
+    std::string old_value;
+    uint64_t most_recent_timestamp = 0;
 
-        it++;
-        sync_replicate_count++;
+    for (const auto &pair : response_values) {
+      if (pair.second > most_recent_timestamp) {
+        old_value = pair.first;
+        most_recent_timestamp = pair.second;
       }
     }
 
-    if (response_write == 0) {
-      std::string old_value;
-      uint64_t timestamp;
-      bool parseSuccessful =
-          parseValue(old_timestamp_and_value, timestamp, old_value);
+    if (old_value != "") {
+      response->set_code(0);
       response->set_message(old_value);
+    } else {
+      response->set_code(1);
+    }
+    return Status::OK;
+  }
+
+  void WriteToServer(
+      int server_port, const std::string &key, const std::string &value,
+      uint64_t timestamp, std::unordered_set<int> &replicate_servers_tried,
+      std::vector<std::pair<std::string, uint64_t>> &response_values) {
+    std::string server_address("0.0.0.0:" + std::to_string(server_port));
+    ClientContext context_server_put;
+    PutRequest replica_put_request;
+    PutResponse replica_put_response;
+
+    replica_put_request.set_key(key);
+    replica_put_request.set_value(value);
+    replica_put_request.set_timestamp(timestamp);
+    replica_put_request.set_is_client_request(false);
+
+    {
+      std::lock_guard<std::mutex> lock(put_map_mutex);
+      replicate_servers_tried.insert(server_port);
     }
 
-    response->set_code(response_write);
-    return Status::OK;
+    Status status = kvstore_stubs_map[server_address]->Put(
+        &context_server_put, replica_put_request, &replica_put_response);
+
+    while (!status.ok()) {
+      // Retry to some other server
+      int next_server_port = server_port + 1;
+      {
+        std::lock_guard<std::mutex> lock(put_map_mutex);
+        while (next_server_port < 50051 + total_servers &&
+               !replicate_servers_tried.contains(next_server_port)) {
+          next_server_port += 1;
+        }
+        replicate_servers_tried.insert(next_server_port);
+      }
+      server_address = "0.0.0.0:" + std::to_string(next_server_port);
+
+      status = kvstore_stubs_map[server_address]->Put(
+          &context_server_put, replica_put_request, &replica_put_response);
+    }
+
+    int response_code = replica_put_response.code();
+    if (response_code == 0) {
+      put_response_mutex.lock();
+      response_values.emplace_back(replica_put_response.message(),
+                                   replica_put_response.timestamp());
+      put_response_mutex.unlock();
+    }
   }
 
   // void fetch_data()
@@ -359,6 +421,7 @@ public:
   void InitializeServerStubs() {
     for (int port = 50051; port < 50051 + total_servers; port++) {
       std::string address("0.0.0.0:" + std::to_string(port));
+      CH.addServer(address);
       auto channel =
           grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
       kvstore_stubs_map[address] = kvstore::KVStore::NewStub(channel);
@@ -392,11 +455,11 @@ void RunServer(std::string &server_address, int total_servers,
     exit(1);
   }
 
-  std::thread t1(&KVStoreServiceImpl::HeartbeatMechanism, &service);
+  //   std::thread t1(&KVStoreServiceImpl::HeartbeatMechanism, &service);
   std::cout << "Server started at " << server_address << std::endl;
   server->Wait();
 
-  t1.join();
+  //   t1.join();
 }
 
 int main(int argc, char **argv) {
