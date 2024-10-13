@@ -261,11 +261,12 @@ public:
       put_response_mutex.unlock();
     }
   }
-  void fetchServerData(
-          int port, const std::string &key, std::mutex &mtx,
-          std::atomic<uint64_t> &latest_timestamp, std::string &latest_value,
-          std::unordered_map<std::string, uint64_t> &server_timestamps,
-          std::unordered_set<int> &replicate_servers_tried) {
+  void
+  fetchServerData(int port, const std::string &key, std::mutex &mtx,
+                  std::mutex &value_mtx, std::atomic<uint64_t> &latest_timestamp,
+                  std::string &latest_value,
+                  std::unordered_map<std::string, uint64_t> &server_timestamps,
+                  std::unordered_set<int> &replicate_servers_tried) {
     std::string address("0.0.0.0:" + std::to_string(port));
     grpc::ClientContext context_server_get;
     GetReponse get_response;
@@ -297,7 +298,7 @@ public:
           &context_server_get, get_request_for_servers, &get_response);
     }
     {
-      std::lock_guard<std::mutex> lock(mtx);
+      std::lock_guard<std::mutex> lock(value_mtx);
       uint64_t timestamp = get_response.timestamp();
       std::string value = get_response.value();
       server_timestamps[address] = timestamp;
@@ -322,15 +323,16 @@ public:
       std::string latest_value;
       std::unordered_map<std::string, uint64_t> server_timestamps;
       std::mutex mtx;
+      std::mutex value_mtx;
       std::vector<std::thread> get_threads;
 
       for (int i = 0; i < write_quorum; i++) {
         int target_port = (port + i) % total_servers;
         get_threads.emplace_back(
             &KVStoreServiceImpl::fetchServerData, this, target_port,
-            request->key(), std::ref(mtx), std::ref(latest_timestamp),
-            std::ref(latest_value), std::ref(server_timestamps),
-            std::ref(replicate_servers_tried));
+            request->key(), std::ref(mtx), std::ref(value_mtx),
+            std::ref(latest_timestamp), std::ref(latest_value),
+            std::ref(server_timestamps), std::ref(replicate_servers_tried));
       }
 
       for (auto &t : get_threads) {
