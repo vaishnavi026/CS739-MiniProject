@@ -250,23 +250,20 @@ public:
                 
                 }
             }
-            ReplicateRequest replicate_request;
-            ClientContext replicate_request_context;
-            replicate_request.set_key(request->key());
-            replicate_request.set_value(latest_value);
-            replicate_request.set_timestamp(latest_timestamp);
-            replicate_request.set_async_forward_to_all(false);
-            
+            ReplicateRequest async_request;
+            async_request.set_key(request->key());
+            async_request.set_value(latest_value);
+            async_request.set_timestamp(latest_timestamp);
+
             for (const auto &pair : server_timestamps)
             {
                 const std::string &address = pair.first;
                 uint64_t timestamp = pair.second;
                 
-                Empty response;
                 if (timestamp < latest_timestamp)
                 {
                     
-                    Status replicate_status = kvstore_stubs_map[address]->Replicate(&replicate_request_context, replicate_request, &response);
+                    AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
                 }
             }
             response->set_value(latest_value);
