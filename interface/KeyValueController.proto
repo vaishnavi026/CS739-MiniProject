@@ -41,7 +41,8 @@ message HeartbeatMessage {
 message ReplicateRequest {
     string key = 1;
     string value = 2;
-    bool async_forward_to_all = 3;
+    uint64 timestamp = 3;
+    bool async_forward_to_all = 4;
 }
 
 message DieRequest {

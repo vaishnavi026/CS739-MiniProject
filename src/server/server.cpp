@@ -57,8 +57,6 @@ bool parseValue(const std::string combined_value, uint64_t &timestamp,
     return false;
 }
 
-
-
 void AsyncReplicationHelper(const ReplicateRequest &request,
                             const std::unique_ptr<KVStore::Stub> &stub)
 {
@@ -210,7 +208,7 @@ public:
         {
 
             int successful_servers_read = 0;
-            int R = (replication_factor + 1)  / 2;
+            int R = (replication_factor + 1) / 2;
             std::string server_address = CH.getServer(request->key());
             int port = getPortNumber(server_address);
             int request_count = 0;
@@ -227,7 +225,7 @@ public:
                 GetRequest get_request_for_servers;
                 get_request_for_servers.set_is_client_request(false);
                 get_request_for_servers.set_key(request->key());
-                
+
                 GetReponse server_read_response;
                 Status status = kvstore_stubs_map[address]->Get(&context_server_get, get_request_for_servers, &server_read_response);
                 if (status.ok() && server_read_response.code() == 0)
@@ -246,7 +244,10 @@ public:
                 if (request_count > 2 * R)
                 {
                     // unsuccessful
+
+                    // return Status::CANCELLED;
                     break;
+                
                 }
             }
             for (const auto &pair : server_timestamps)
@@ -255,17 +256,14 @@ public:
                 uint64_t timestamp = pair.second;
                 if (timestamp < latest_timestamp)
                 {
-                    PutRequest put_request;
-                    ClientContext put_request_context;
-                    put_request.set_key(request->key());
-                    put_request.set_value(latest_value);
-                    put_request.set_timestamp(latest_timestamp);
-                    PutResponse put_response;
-                    Status put_status = kvstore_stubs_map[address]->Put(&put_request_context, put_request, &put_response);
-                    if (!put_status.ok())
-                    {
-                        std::cerr << "Failed to update server at " << address << std::endl;
-                    }
+                    ReplicateRequest replicate_request;
+                    ClientContext replicate_request_context;
+                    replicate_request.set_key(request->key());
+                    replicate_request.set_value(latest_value);
+                    replicate_request.set_timestamp(latest_timestamp);
+                    replicate_request.set_async_forward_to_all(false);
+                    Empty response;
+                    Status replicate_status = kvstore_stubs_map[address]->Replicate(&replicate_request_context, replicate_request, &response);
                 }
             }
             response->set_value(latest_value);
