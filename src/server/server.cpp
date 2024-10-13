@@ -216,6 +216,9 @@ public:
       std::mutex &put_response_mutex,
       std::unordered_set<int> &replicate_servers_tried,
       std::vector<std::pair<std::string, uint64_t>> &response_values) {
+    if (server_port > 50051 + total_servers) {
+      server_port = 50051 + (server_port % total_servers);
+    }
     std::string server_address("0.0.0.0:" + std::to_string(server_port));
     ClientContext context_server_put;
     PutRequest replica_put_request;
@@ -276,13 +279,15 @@ public:
     }
   }
 
-  void fetchServerData(
-      int port, const std::string &key, std::mutex &mtx, std::mutex &value_mtx,
-      std::atomic<uint64_t> &latest_timestamp, std::string &latest_value,
-      std::unordered_map<std::string, uint64_t> &server_timestamps,
-      std::unordered_set<int> &replicate_servers_tried) {
+  void
+  fetchServerData(int port, const std::string &key, std::mutex &mtx,
+                  std::mutex &value_mtx, uint64_t &latest_timestamp,
+                  std::string &latest_value,
+                  std::unordered_map<std::string, uint64_t> &server_timestamps,
+                  std::unordered_set<int> &replicate_servers_tried) {
+    port += 50051;
     std::string address("0.0.0.0:" + std::to_string(port));
-    grpc::ClientContext context_server_get;
+    ClientContext context_server_get;
     GetReponse get_response;
     GetRequest get_request_for_servers;
     get_request_for_servers.set_is_client_request(false);
@@ -294,24 +299,37 @@ public:
       std::lock_guard<std::mutex> lock(mtx);
       replicate_servers_tried.insert(port);
     }
-    while (!(status.ok() && get_response.code() == 0)) {
+    int requests_tried = 1;
+
+    while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
-      int next_server_port;
+      int next_server_port = port + 1;
+      if (next_server_port > 50051 + total_servers) {
+        next_server_port = 50051;
+      }
+      bool complete_rev = false;
       {
         std::lock_guard<std::mutex> lock(mtx);
-        next_server_port = port + 1;
-        while (next_server_port < 50051 + total_servers &&
+        while (!complete_rev &&
                !replicate_servers_tried.contains(next_server_port)) {
           next_server_port += 1;
+          if (next_server_port > 50051 + total_servers) {
+            if (complete_rev) {
+              return;
+            }
+            next_server_port = 50051;
+            complete_rev = true;
+          }
         }
         replicate_servers_tried.insert(next_server_port);
       }
       address = "0.0.0.0:" + std::to_string(next_server_port);
-
+      ClientContext context_server_get_retry;
       status = kvstore_stubs_map[address]->Get(
-          &context_server_get, get_request_for_servers, &get_response);
+          &context_server_get_retry, get_request_for_servers, &get_response);
+      requests_tried++;
     }
-    {
+    if (get_response.code() == 0) {
       std::lock_guard<std::mutex> lock(value_mtx);
       uint64_t timestamp = get_response.timestamp();
       std::string value = get_response.value();
@@ -329,11 +347,11 @@ public:
              GetReponse *response) override {
 
     if (request->is_client_request()) {
-
+      std::cout << "Received client get key = " << request->key() << std::endl;
       std::string server_address = CH.getServer(request->key());
       int port = getPortNumber(server_address);
       std::unordered_set<int> replicate_servers_tried;
-      std::atomic<uint64_t> latest_timestamp(0);
+      uint64_t latest_timestamp = 0;
       std::string latest_value;
       std::unordered_map<std::string, uint64_t> server_timestamps;
       std::mutex mtx;
@@ -353,22 +371,25 @@ public:
         t.join();
       }
 
-      response->set_value(latest_value);
-      response->set_timestamp(latest_timestamp);
+      if (latest_value != "") {
+        response->set_value(latest_value);
 
-      ReplicateRequest async_request;
-      async_request.set_key(request->key());
-      async_request.set_value(latest_value);
-      async_request.set_timestamp(latest_timestamp);
+        ReplicateRequest async_request;
+        async_request.set_key(request->key());
+        async_request.set_value(latest_value);
+        async_request.set_timestamp(latest_timestamp);
+        std::cout << "Sending async repair" << std::endl;
+        for (const auto &pair : server_timestamps) {
+          const std::string &address = pair.first;
+          uint64_t timestamp = pair.second;
 
-      for (const auto &pair : server_timestamps) {
-        const std::string &address = pair.first;
-        uint64_t timestamp = pair.second;
-
-        if (timestamp < latest_timestamp) {
+          if (timestamp < latest_timestamp) {
 
           AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
         }
+        }
+      } else {
+        response->set_code(1);
       }
       return Status::OK;
     } else {
