@@ -185,6 +185,7 @@ public:
     return Status::OK;
   }
 
+  // void fetch_data()
   Status Get(ServerContext *context, const GetRequest *request,
              GetReponse *response) override {
     if (request->is_client_request()) {
@@ -197,21 +198,24 @@ public:
       uint64_t latest_timestamp = 0; // keep track of latest read
       std::string latest_value;
       std::unordered_map<std::string, uint64_t> server_timestamps;
+      
+    
       while (successful_servers_read != R) {
         std::string address("0.0.0.0:" + std::to_string(port));
-        port++;
+        port = (port + 1) % total_servers;
         std::string value;
         uint64_t timestamp;
         ClientContext context_server_get;
         GetRequest get_request_for_servers;
         get_request_for_servers.set_is_client_request(false);
         get_request_for_servers.set_key(request->key());
-
         GetReponse server_read_response;
+
         Status status = kvstore_stubs_map[address]->Get(&context_server_get,
                                                         get_request_for_servers,
                                                         &server_read_response);
         if (status.ok() && server_read_response.code() == 0) {
+          
           value = server_read_response.value();
           timestamp = server_read_response.timestamp();
           server_timestamps[address] = timestamp;
