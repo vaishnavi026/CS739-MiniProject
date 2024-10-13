@@ -225,36 +225,31 @@ public:
         if (request_count > 2 * R) {
           // unsuccessful
 
-                    // return Status::CANCELLED;
-                    break;
-                
-                }
-            }
-            ReplicateRequest async_request;
-            async_request.set_key(request->key());
-            async_request.set_value(latest_value);
-            async_request.set_timestamp(latest_timestamp);
-
-            for (const auto &pair : server_timestamps)
-            {
-                const std::string &address = pair.first;
-                uint64_t timestamp = pair.second;
-                
-                if (timestamp < latest_timestamp)
-                {
-                    
-                    AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
-                }
-            }
-            response->set_value(latest_value);
-            response->set_timestamp(latest_timestamp);
-            return Status::OK;
+          // return Status::CANCELLED;
+          break;
         }
-        else
-        {
-            std::string timestamp_and_value;
-            int response_read;
-            response_read = kvStore.read(request->key(), timestamp_and_value);
+      }
+      ReplicateRequest async_request;
+      async_request.set_key(request->key());
+      async_request.set_value(latest_value);
+      async_request.set_timestamp(latest_timestamp);
+
+      for (const auto &pair : server_timestamps) {
+        const std::string &address = pair.first;
+        uint64_t timestamp = pair.second;
+
+        if (timestamp < latest_timestamp) {
+
+          AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
+        }
+      }
+      response->set_value(latest_value);
+      response->set_timestamp(latest_timestamp);
+      return Status::OK;
+    } else {
+      std::string timestamp_and_value;
+      int response_read;
+      response_read = kvStore.read(request->key(), timestamp_and_value);
 
       if (response_read == -1) {
         return grpc::Status(grpc::StatusCode::ABORTED, "");
