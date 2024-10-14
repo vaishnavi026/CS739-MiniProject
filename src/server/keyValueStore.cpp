@@ -125,34 +125,6 @@ int keyValueStore::batched_write(std::vector<std::pair<std::string,std::string>>
   return 0;
 }
 
-std::vector<std::pair<std::string, std::string>> keyValueStore::getAllLatestKeys(
-  uint64_t server_timestamp)
-{
-  rocksdb::Iterator *it = db->NewIterator(rocksdb::ReadOptions());
-  std::vector<std::pair<std::string, std::string>> latest_keys;
-
-  if (!it->status().ok()) {
-    std::cerr << "Error during iteration: " << it->status().ToString()
-              << std::endl;
-    return latest_keys;
-  }
-
-  // Iterate over the key-value pairs
-  for (it->SeekToFirst(); it->Valid(); it->Next()) {
-    std::string key = it->key().ToString();
-    std::string value = it->value().ToString();
-
-    std::string old_value;
-    uint64_t timestamp;
-    parseValue(value, timestamp, old_value);
-
-    if (server_timestamp < timestamp) {
-      latest_keys.push_back({key, value});
-    }
-  }
-  return latest_keys;
-}
-
 void ConsistentHashing::addServer(const std::string &server_name) {
   for (int i = 0; i < virtualServers_; ++i) {
     std::string virtualServerName = server_name + "-" + std::to_string(i);
