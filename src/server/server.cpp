@@ -92,6 +92,7 @@ private:
   int last_port;
   int replication_factor;
   int write_quorum;
+  bool is_recovered_server;
   //   std::atomic_int writes_completed;
   std::map<std::string, std::unique_ptr<KVStore::Stub>> kvstore_stubs_map;
   std::chrono::high_resolution_clock::time_point last_heartbeat;
@@ -108,6 +109,10 @@ public:
     this->replication_factor = replication_factor;
     this->write_quorum = (replication_factor + 1) / 2;
     InitializeServerStubs();
+
+    // this->is_recovered_server = isRecoveredServer();
+    // if(this->is_recovered_server)
+    //     HandleRecoveryMachine();
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -294,7 +299,7 @@ public:
     }
   }
 
-  void
+ void
   fetchServerData(int port, const std::string &key,
                   std::atomic<int> &last_server_port_tried,
                   std::mutex &value_mtx, uint64_t &latest_timestamp,
@@ -489,6 +494,56 @@ public:
         std::cerr << "Failed to establish gRPC channel connection\n";
       }
     }
+  }
+
+  bool isRecoveredServer(){
+      std::string failed_server_check_key = "$";
+      std::string timestamp_and_value;
+      int response_read = kvStore.read(failed_server_check_key, timestamp_and_value);
+      return response_read;
+  }
+
+  void HandleRecoveryMachine() {
+      int server_port;
+      std::vector<std::pair<std::string,std::string>> kv_vector;
+      uint64_t last_written_timestamp;
+      std::string last_written_value;
+
+      std::string recovery_request_timestamp_value;
+      std::string latest_timestamp_key = "$_";
+      std::string consistent_hash_address = CH.getServer(this->server_address);
+      ClientContext handle_recovery_context;
+      RestoreServerRequest handle_recovery_request;
+      RestoreServerResponse recovery_response;
+
+      int port_number = getPortNumber(consistent_hash_address);
+      int response_read = kvStore.read(latest_timestamp_key, recovery_request_timestamp_value);
+      kvStore.parseValue(recovery_request_timestamp_value, last_written_timestamp, last_written_value);
+
+      for(int i = port_number;i < port_number + total_servers;i++){
+          
+          if (server_port >= first_port + total_servers) {
+            server_port = first_port + (server_port % last_port);
+          }
+        
+          std::string server_address("0.0.0.0:" + std::to_string(server_port));
+
+          handle_recovery_request.set_timestamp(last_written_timestamp);
+          Status status = kvstore_stubs_map[server_address]->RestoreServer(
+            &handle_recovery_context, handle_recovery_request, &recovery_response
+          );
+
+          if(status.ok()){
+              break;
+          }
+      }
+
+      for (int i = 0; i < recovery_response.repair_list_size(); ++i) {
+        const KeyValuePair& kv_pair = recovery_response.repair_list(i); 
+        kv_vector.push_back({kv_pair.key(),kv_pair.value()}); 
+      }    
+
+      kvStore.batched_write(kv_vector);
   }
 };
 
