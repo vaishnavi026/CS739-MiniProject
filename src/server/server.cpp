@@ -628,6 +628,18 @@ public:
 
     std::cout << "Successfully brought up failed machine" << std::endl;
   }
+
+  Status Die(ServerContext *context, const DieRequest *request,
+             Empty *response) override {
+    int clean_code = request->clean();
+    if (clean_code == 1) {
+      // TODO: If primary, complete state replciation and new election.
+      std::cout << "State flushed, server shutting down";
+    } else {
+      std::cout << "Server killed";
+    }
+    exit(1);
+  }
 };
 
 void RunServer(std::string &server_address, int total_servers,
