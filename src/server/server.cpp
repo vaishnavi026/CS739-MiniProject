@@ -497,21 +497,33 @@ public:
   }
 
   bool isRecoveredServer(){
-      std::string failed_server_check_key = "$";
+      std::string failed_server_check_key = "#";
       std::string timestamp_and_value;
       int response_read = kvStore.read(failed_server_check_key, timestamp_and_value);
-      return response_read;
+
+      if(response_read == 1){
+          std::cout << "Server with addr = " << this->server_address << " is a fresh instance" << std::endl;
+          return 0;
+      }else if(response_read == -1){
+          std::cout << "Server with addr = " << this->server_address << " has db error on reading # key" << std::endl;
+          exit(1);
+      }else{
+          std::cout << "Server with addr = " << this->server_address << " has recovered after failure" << std::endl;
+          return 1;
+      }
   }
 
   void HandleRecoveryMachine() {
+
       int server_port;
       std::vector<std::pair<std::string,std::string>> kv_vector;
       uint64_t last_written_timestamp;
-      std::string last_written_value;
 
+      std::string last_written_value;
       std::string recovery_request_timestamp_value;
-      std::string latest_timestamp_key = "$_";
+      std::string latest_timestamp_key = "$"; 
       std::string consistent_hash_address = CH.getServer(this->server_address);
+
       ClientContext handle_recovery_context;
       RestoreServerRequest handle_recovery_request;
       RestoreServerResponse recovery_response;
@@ -522,8 +534,11 @@ public:
 
       for(int i = port_number;i < port_number + total_servers;i++){
           
-          if (server_port >= first_port + total_servers) {
-            server_port = first_port + (server_port % last_port);
+          int server_port;
+          if (i >= first_port + total_servers) {
+            server_port = first_port + (i % last_port);
+          }else{
+            server_port = i;
           }
         
           std::string server_address("0.0.0.0:" + std::to_string(server_port));
@@ -543,7 +558,13 @@ public:
         kv_vector.push_back({kv_pair.key(),kv_pair.value()}); 
       }    
 
-      kvStore.batched_write(kv_vector);
+      int batched_write_status = kvStore.batched_write(kv_vector);
+      if(batched_write_status == -1){
+          std::cerr << "Batched write error" << std::endl;
+      }
+
+      std::cout << "Successfully brought up failed machine" << std::endl;
+      
   }
 };
 
