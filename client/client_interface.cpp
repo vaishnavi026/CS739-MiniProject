@@ -65,6 +65,7 @@ int kv739_init(char *config_file) {
   else
     return 0;
 }
+
 int kv739_shutdown(void) {
   for (const auto &address : servers) {
     kvstore_map[address].reset();
@@ -72,6 +73,7 @@ int kv739_shutdown(void) {
   servers.clear();
   return 0;
 }
+
 int kv739_die(char *server_name, int clean) {
   std::string server_address(server_name);
   auto channel =
@@ -95,6 +97,7 @@ int kv739_die(char *server_name, int clean) {
   temp_stub->Die(&context, request, &response);
   return 0;
 }
+
 int kv739_get(char *key, char *value) {
 
   GetRequest request;
@@ -105,6 +108,14 @@ int kv739_get(char *key, char *value) {
   std::mt19937 gen(rd());
   std::shuffle(servers.begin(), servers.end(), gen);
 
+  if (!is_valid_key(key)) {
+    std::cerr << "Key does not meet the conditions set forth" << std::endl;
+    return -1;
+  }
+
+  request.set_key(key);
+  request.set_is_client_request(true);
+
   num_tries = 0;
 
   for (const auto &rand_server : servers) {
@@ -112,13 +123,6 @@ int kv739_get(char *key, char *value) {
       std::cerr << "Client not initialized, call kv739_init\n";
       return -1;
     }
-    if (!is_valid_key(key)) {
-      std::cerr << "Key does not meet the conditions set forth" << std::endl;
-      return -1;
-    }
-    request.set_key(key);
-    request.set_is_client_request(true);
-
     ClientContext context;
     Status status = kvstore_map[rand_server]->Get(&context, request, &response);
     num_tries++;
@@ -157,6 +161,16 @@ int kv739_put(char *key, char *value, char *old_value) {
   std::mt19937 gen(rd());
   std::shuffle(servers.begin(), servers.end(), gen);
 
+  if (!is_valid_key(key) || !is_valid_value(value)) {
+    std::cerr << "Key or Value does not meet the conditions set forth"
+              << std::endl;
+    return -1;
+  }
+
+  request.set_key(key);
+  request.set_value(value);
+  request.set_is_client_request(true);
+
   num_tries = 0;
 
   for (const auto &rand_server : servers) {
@@ -165,34 +179,23 @@ int kv739_put(char *key, char *value, char *old_value) {
       return -1;
     }
 
-    if (is_valid_key(key) && is_valid_value(value)) {
-      request.set_key(key);
-      request.set_value(value);
-      request.set_is_client_request(true);
+    ClientContext context;
+    Status status = kvstore_map[rand_server]->Put(&context, request, &response);
+    num_tries++;
 
-      ClientContext context;
-      Status status =
-          kvstore_map[rand_server]->Put(&context, request, &response);
-      num_tries++;
-
-      if (!status.ok()) {
-        std::cerr << "Server Put failed: " << status.error_message() << "\n";
-        if (num_tries == connection_try_limit) {
-          std::cerr << "Server Put Connection retry limit reached, Aborting "
-                       "client request"
-                    << std::endl;
-          return -1;
-        }
-      } else {
-        std::cout << "Client Put request with key = " << key
-                  << " got coordinator server_address = " << rand_server
+    if (!status.ok()) {
+      std::cerr << "Server Put failed: " << status.error_message() << "\n";
+      if (num_tries == connection_try_limit) {
+        std::cerr << "Server Put Connection retry limit reached, Aborting "
+                     "client request"
                   << std::endl;
-        break;
+        return -1;
       }
     } else {
-      std::cerr << "Key or Value does not meet the conditions set forth"
+      std::cout << "Client Put request with key = " << key
+                << " got coordinator server_address = " << rand_server
                 << std::endl;
-      return -1;
+      break;
     }
   }
 
@@ -236,63 +239,4 @@ bool is_valid_value(char *value) {
   return true;
 }
 
-int main(int argc, char **argv) {
-  char server_name[] = "0.0.0.0:50051";
-  if (kv739_init(server_name) != 0) {
-    return -1;
-  }
-  // Expected outputs: With Fresh DB
-  // Key Not Found!
-  // Put Success, no old value
-  // Put Success, old value Distributed Systems, MIKE SWIFT
-  // Key Found, Value is Distributed Systems, MIKE SWIFT
-  // Put Success, old value Distributed Systems, MIKE SWIFT
-  // Key Found, Value is Distributed Systems, MIKE SWIFT, FALL 2024
-  char key[] = "CS739";
-  char value[] = "Distributed Systems, MIKE SWIFT";
-  char update_value[] = "Distributed Systems, MIKE SWIFT, FALL 2024";
-  char get_value[2049] = {0};
-  int get_result = kv739_get(key, get_value);
-  if (get_result == 0) {
-    std::cout << "Key Found, Value is " << get_value << "\n";
-  } else if (get_result == 1) {
-    std::cout << "Key Not Found!\n";
-  }
-  char old_value[2049] = {0};
-  int put_result = kv739_put(key, value, old_value);
-  if (put_result == 1) {
-    std::cout << "Put Success, no old value\n";
-  } else if (put_result == 0) {
-    std::cout << "Put Success, old value " << old_value << "\n";
-  }
-  int put_result2 = kv739_put(key, value, old_value);
-  if (put_result2 == 1) {
-    std::cout << "Put Success, no old value\n";
-  } else if (put_result2 == 0) {
-    std::cout << "Put Success, old value " << old_value << "\n";
-  }
-  int get_result2 = kv739_get(key, get_value);
-  if (get_result2 == 0) {
-    std::cout << "Key Found, Value is " << get_value << "\n";
-  } else if (get_result2 == 1) {
-    std::cout << "Key Not Found!\n";
-  }
-  char old_value2[2049] = {0};
-  int put_result3 = kv739_put(key, update_value, old_value2);
-  if (put_result3 == 1) {
-    std::cout << "Put Success, no old value\n";
-  } else if (put_result3 == 0) {
-    std::cout << "Put Success, old value " << old_value2 << "\n";
-  }
-  char get_value2[2049] = {0};
-  int get_result3 = kv739_get(key, get_value2);
-  if (get_result3 == 0) {
-    std::cout << "Key Found, Value is " << get_value2 << "\n";
-  } else if (get_result3 == 1) {
-    std::cout << "Key Not Found!\n";
-  }
-  if (kv739_shutdown() != 0) {
-    return -1;
-  }
-  return 0;
-}
+int main(int argc, char **argv) { return 0; }
