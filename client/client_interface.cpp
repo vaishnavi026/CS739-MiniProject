@@ -46,10 +46,11 @@ int kv739_init(char *config_file) {
     return -1;
   }
   for (const auto &address : servers) {
-    auto channel = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
+    auto channel =
+        grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
     kvstore_map[address] = kvstore::KVStore::NewStub(channel);
     if (!kvstore_map[address]) {
-        std::cerr << "Failed to create gRPC stub\n";
+      std::cerr << "Failed to create gRPC stub\n";
     }
     grpc_connectivity_state state = channel->GetState(true);
     if (state == GRPC_CHANNEL_SHUTDOWN ||
@@ -106,7 +107,7 @@ int kv739_get(char *key, char *value) {
 
   num_tries = 0;
 
-  for (const auto& rand_server : servers) {
+  for (const auto &rand_server : servers) {
     if (!kvstore_map[rand_server]) {
       std::cerr << "Client not initialized, call kv739_init\n";
       return -1;
@@ -117,19 +118,23 @@ int kv739_get(char *key, char *value) {
     }
     request.set_key(key);
     request.set_is_client_request(true);
-    
+
     ClientContext context;
     Status status = kvstore_map[rand_server]->Get(&context, request, &response);
     num_tries++;
 
-    if (!status.ok() ) {
+    if (!status.ok()) {
       std::cerr << "Server Get failed: " << status.error_message() << "\n";
-      if(num_tries == connection_try_limit){
-        std::cerr << "Server Get Connection retry limit reached, Aborting client request" << std::endl;
+      if (num_tries == connection_try_limit) {
+        std::cerr << "Server Get Connection retry limit reached, Aborting "
+                     "client request"
+                  << std::endl;
         return -1;
       }
-    }else{
-      std::cout << "Client Get request with key = " << key << " got coordinator server_address = " << rand_server << std::endl;
+    } else {
+      std::cout << "Client Get request with key = " << key
+                << " got coordinator server_address = " << rand_server
+                << std::endl;
       break;
     }
   }
@@ -154,34 +159,39 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   num_tries = 0;
 
-  for (const auto& rand_server : servers) {
+  for (const auto &rand_server : servers) {
     if (!kvstore_map[rand_server]) {
       std::cerr << "Client not initialized, call kv739_init\n";
       return -1;
     }
-  
+
     if (is_valid_key(key) && is_valid_value(value)) {
       request.set_key(key);
       request.set_value(value);
       request.set_is_client_request(true);
-    
+
       ClientContext context;
-      Status status = kvstore_map[rand_server]->Put(&context, request, &response);
+      Status status =
+          kvstore_map[rand_server]->Put(&context, request, &response);
       num_tries++;
 
       if (!status.ok()) {
         std::cerr << "Server Put failed: " << status.error_message() << "\n";
-        if(num_tries == connection_try_limit){
-          std::cerr << "Server Put Connection retry limit reached, Aborting client request" << std::endl;
+        if (num_tries == connection_try_limit) {
+          std::cerr << "Server Put Connection retry limit reached, Aborting "
+                       "client request"
+                    << std::endl;
           return -1;
         }
-      }else{
-        std::cout << "Client Put request with key = " << key << " got coordinator server_address = " << rand_server << std::endl;
+      } else {
+        std::cout << "Client Put request with key = " << key
+                  << " got coordinator server_address = " << rand_server
+                  << std::endl;
         break;
       }
-    } 
-    else {
-      std::cerr << "Key or Value does not meet the conditions set forth" << std::endl;
+    } else {
+      std::cerr << "Key or Value does not meet the conditions set forth"
+                << std::endl;
       return -1;
     }
   }
@@ -190,7 +200,7 @@ int kv739_put(char *key, char *value, char *old_value) {
   if (response_code == 0) {
     strcpy(old_value, response.message().c_str());
   }
-    
+
   return response_code;
 }
 

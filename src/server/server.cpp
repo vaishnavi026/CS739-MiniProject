@@ -110,8 +110,8 @@ public:
     this->write_quorum = (replication_factor + 1) / 2;
     InitializeServerStubs();
     this->is_recovered_server = isRecoveredServer();
-    if(this->is_recovered_server)
-        HandleFailedMachineRecovery();
+    if (this->is_recovered_server)
+      HandleFailedMachineRecovery();
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -204,7 +204,8 @@ public:
     async_request.set_async_forward_to_all(false);
 
     int last_server_port = last_server_port_tried;
-    // // std::cout << "LAST SERVER PORT OUTSIDE " << last_server_port << std::endl;
+    // // std::cout << "LAST SERVER PORT OUTSIDE " << last_server_port <<
+    // std::endl;
     last_server_port += 1;
     std::string server_address;
     // bool rev = false;
@@ -215,7 +216,6 @@ public:
           break;
         }
         // rev = true;
-        
       }
       // std::cout << last_server_port << " " << server_port << std::endl;
       if (last_server_port == server_port) {
@@ -280,12 +280,14 @@ public:
       status = kvstore_stubs_map[server_address]->Put(&context_server_put_retry,
                                                       replica_put_request,
                                                       &replica_put_response);
-      // // printf("Thread %s completed Put Request %s with err message %s inside "
+      // // printf("Thread %s completed Put Request %s with err message %s
+      // inside "
       // //        "loop\n",
       // //        thread_id_str.c_str(), server_address.c_str(),
       // //        status.error_message().c_str());
       // if (status.ok()) {
-      //   // printf("Thread %s status ok %s inside loop\n", thread_id_str.c_str(),
+      //   // printf("Thread %s status ok %s inside loop\n",
+      //   thread_id_str.c_str(),
       //   //        server_address.c_str());
       // }
       requests_tried++;
@@ -302,7 +304,7 @@ public:
     }
   }
 
- void
+  void
   fetchServerData(int port, const std::string &key,
                   std::atomic<int> &last_server_port_tried,
                   std::mutex &value_mtx, uint64_t &latest_timestamp,
@@ -323,17 +325,17 @@ public:
         &context_server_get, get_request_for_servers, &get_response);
 
     int requests_tried = 1;
-    // std::thread::id thread_id = std::this_thread::get_id();
-    // std::string thread_id_str =
-    //     std::to_string(*reinterpret_cast<uint64_t *>(&thread_id));
-    // printf("Thread %s completed Get Request %s err message %s\n",
-    //        thread_id_str.c_str(), address.c_str(),
-    //        status.error_message().c_str());
+    std::thread::id thread_id = std::this_thread::get_id();
+    std::string thread_id_str =
+        std::to_string(*reinterpret_cast<uint64_t *>(&thread_id));
+    printf("Thread %s completed Get Request %s err message %s\n",
+           thread_id_str.c_str(), address.c_str(),
+           status.error_message().c_str());
 
-    // if (status.ok()) {
-    //   printf("Thread %s status ok %s\n", thread_id_str.c_str(),
-    //          address.c_str());
-    // }
+    if (status.ok()) {
+      printf("Thread %s status ok %s\n", thread_id_str.c_str(),
+             address.c_str());
+    }
 
     while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
@@ -350,14 +352,14 @@ public:
       status = kvstore_stubs_map[address]->Get(
           &context_server_get_retry, get_request_for_servers, &get_response);
       requests_tried++;
-      // printf("Thread %s completed Get Request inside loop %s err message %s\n",
-      //        thread_id_str.c_str(), address.c_str(),
-      //        status.error_message().c_str());
+      printf("Thread %s completed Get Request inside loop %s err message %s\n",
+             thread_id_str.c_str(), address.c_str(),
+             status.error_message().c_str());
 
-      // if (status.ok()) {
-      //   printf("Thread %s status ok - inside loop %s\n", thread_id_str.c_str(),
-      //          address.c_str());
-      // }
+      if (status.ok()) {
+        printf("Thread %s status ok - inside loop %s\n", thread_id_str.c_str(),
+               address.c_str());
+      }
     }
 
     if (status.ok() && get_response.code() == 0) {
@@ -418,7 +420,8 @@ public:
         for (const auto &pair : server_timestamps) {
           const std::string &address = pair.first;
           uint64_t timestamp = pair.second;
-          // std::cout << address << " : Timestamp : " << timestamp << " " << latest_timestamp << std::endl;
+          // std::cout << address << " : Timestamp : " << timestamp << " " <<
+          // latest_timestamp << std::endl;
           if (timestamp < latest_timestamp) {
             AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
           }
@@ -447,7 +450,6 @@ public:
         response->set_timestamp(timestamp);
         std::cout << "Server GET response value " << value << std::endl;
       }
-      
 
       return Status::OK;
     }
@@ -462,12 +464,13 @@ public:
     std::string old_value;
     int response_write;
 
-    response_write =
-        kvStore.write(request->key(), request->value(), request->timestamp(), old_value);
+    response_write = kvStore.write(request->key(), request->value(),
+                                   request->timestamp(), old_value);
 
     if (response_write == 0 || response_write == 1) {
       // if (request->async_forward_to_all()) {
-      //   for (auto it = kvstore_stubs_map.begin(); it != kvstore_stubs_map.end();
+      //   for (auto it = kvstore_stubs_map.begin(); it !=
+      //   kvstore_stubs_map.end();
       //        it++) {
       //     ReplicateRequest async_request;
       //     async_request.set_key(request->key());
@@ -518,101 +521,112 @@ public:
     }
   }
 
-  void PutServerInitKey(){
-      std::cout << "Pushing Server Init Key" << std::endl;
-      std::string server_init_key = "#";
-      std::string server_init_value = "";
-      std::uint64_t server_init_timestamp;
-      std::string old_timestamp_and_value;
+  void PutServerInitKey() {
+    std::cout << "Pushing Server Init Key" << std::endl;
+    std::string server_init_key = "#";
+    std::string server_init_value = "";
+    std::uint64_t server_init_timestamp;
+    std::string old_timestamp_and_value;
 
-      auto now = std::chrono::system_clock::now();
-      server_init_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    now.time_since_epoch())
-                    .count();
+    auto now = std::chrono::system_clock::now();
+    server_init_timestamp =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(
+            now.time_since_epoch())
+            .count();
 
-      int response_write = kvStore.write(server_init_key, server_init_value, server_init_timestamp, old_timestamp_and_value);
-      if(response_write == 0){
-        std::cout << "Successfully pushed server init key" << std::endl;
-      }else if(response_write == -1){
-        std::cerr << "Failed to put server init key in DB" << std::endl;
-        exit(1);
-      }
+    int response_write =
+        kvStore.write(server_init_key, server_init_value, server_init_timestamp,
+                      old_timestamp_and_value);
+    if (response_write == 0) {
+      std::cout << "Successfully pushed server init key" << std::endl;
+    } else if (response_write == -1) {
+      std::cerr << "Failed to put server init key in DB" << std::endl;
+      exit(1);
+    }
   }
 
-  bool isRecoveredServer(){
-      std::string failed_server_check_key = "#";
-      std::string timestamp_and_value;
-      int response_read = kvStore.read(failed_server_check_key, timestamp_and_value);
+  bool isRecoveredServer() {
+    std::string failed_server_check_key = "#";
+    std::string timestamp_and_value;
+    int response_read =
+        kvStore.read(failed_server_check_key, timestamp_and_value);
 
-      if(response_read == 1){
-          std::cout << "Server with addr = " << this->server_address << " is a fresh instance" << std::endl;
-          PutServerInitKey();
-          return 0;
-      }else if(response_read == -1){
-          std::cout << "Server with addr = " << this->server_address << " has db error on reading # key" << std::endl;
-          exit(1);
-      }else{
-          std::cout << "Server with addr = " << this->server_address << " needs to be recovered" << std::endl;
-          return 1;
-      }
+    if (response_read == 1) {
+      std::cout << "Server with addr = " << this->server_address
+                << " is a fresh instance" << std::endl;
+      PutServerInitKey();
+      return 0;
+    } else if (response_read == -1) {
+      std::cout << "Server with addr = " << this->server_address
+                << " has db error on reading # key" << std::endl;
+      exit(1);
+    } else {
+      std::cout << "Server with addr = " << this->server_address
+                << " needs to be recovered" << std::endl;
+      return 1;
+    }
   }
 
   void HandleFailedMachineRecovery() {
 
+    int server_port;
+    std::vector<std::pair<std::string, std::string>> kv_vector;
+    uint64_t last_written_timestamp;
+    std::string recovery_request_timestamp_value;
+    std::string last_written_value;
+    std::string latest_timestamp_key = "$";
+    std::string consistent_hash_address = CH.getServer(this->server_address);
+
+    RestoreServerRequest handle_recovery_request;
+    RestoreServerResponse recovery_response;
+
+    int port_number = getPortNumber(consistent_hash_address);
+    int response_read =
+        kvStore.read(latest_timestamp_key, recovery_request_timestamp_value);
+    last_written_timestamp = std::stoull(recovery_request_timestamp_value);
+
+    std::cout
+        << "Read latest timestamp for the recovered server, response code = "
+        << response_read << std::endl;
+    std::cout << "Last written timestamp value = " << last_written_timestamp
+              << std::endl;
+
+    for (int i = port_number; i < port_number + total_servers; i++) {
+
       int server_port;
-      std::vector<std::pair<std::string,std::string>> kv_vector;
-      uint64_t last_written_timestamp;
-      std::string recovery_request_timestamp_value;
-      std::string last_written_value;
-      std::string latest_timestamp_key = "$"; 
-      std::string consistent_hash_address = CH.getServer(this->server_address);
-
-      RestoreServerRequest handle_recovery_request;
-      RestoreServerResponse recovery_response;
-
-      int port_number = getPortNumber(consistent_hash_address);
-      int response_read = kvStore.read(latest_timestamp_key, recovery_request_timestamp_value);
-      last_written_timestamp = std::stoull(recovery_request_timestamp_value);
-
-      std::cout << "Read latest timestamp for the recovered server, response code = " << response_read << std::endl;
-      std::cout << "Last written timestamp value = " << last_written_timestamp << std::endl;
-
-      for(int i = port_number;i < port_number + total_servers;i++){
-          
-          int server_port;
-          if (i >= first_port + total_servers) {
-            server_port = first_port + (i % last_port);
-          }else{
-            server_port = i;
-          }
-        
-          std::string server_address("0.0.0.0:" + std::to_string(server_port));
-
-          ClientContext handle_recovery_context;
-
-          handle_recovery_request.set_timestamp(last_written_timestamp);
-          Status status = kvstore_stubs_map[server_address]->RestoreServer(
-            &handle_recovery_context, handle_recovery_request, &recovery_response
-          );
-
-          if(status.ok()){
-              break;
-          }
+      if (i >= first_port + total_servers) {
+        server_port = first_port + (i % last_port);
+      } else {
+        server_port = i;
       }
 
-      std::cout << "Repair list size = " << recovery_response.repair_list_size() << std::endl;
-      for (int i = 0; i < recovery_response.repair_list_size(); ++i) {
-        const KeyValuePair& kv_pair = recovery_response.repair_list(i); 
-        kv_vector.push_back({kv_pair.key(),kv_pair.value()}); 
-      }    
+      std::string server_address("0.0.0.0:" + std::to_string(server_port));
 
-      int batched_write_status = kvStore.batched_write(kv_vector);
-      if(batched_write_status == -1){
-          std::cerr << "Batched write error" << std::endl;
+      ClientContext handle_recovery_context;
+
+      handle_recovery_request.set_timestamp(last_written_timestamp);
+      Status status = kvstore_stubs_map[server_address]->RestoreServer(
+          &handle_recovery_context, handle_recovery_request,
+          &recovery_response);
+
+      if (status.ok()) {
+        break;
       }
+    }
 
-      std::cout << "Successfully brought up failed machine" << std::endl;
+    std::cout << "Repair list size = " << recovery_response.repair_list_size()
+              << std::endl;
+    for (int i = 0; i < recovery_response.repair_list_size(); ++i) {
+      const KeyValuePair &kv_pair = recovery_response.repair_list(i);
+      kv_vector.push_back({kv_pair.key(), kv_pair.value()});
+    }
 
+    int batched_write_status = kvStore.batched_write(kv_vector);
+    if (batched_write_status == -1) {
+      std::cerr << "Batched write error" << std::endl;
+    }
+
+    std::cout << "Successfully brought up failed machine" << std::endl;
   }
 };
 
