@@ -125,8 +125,8 @@ public:
       std::string old_timestamp_and_value;
       int response_write =
           kvStore.write(key, value, timestamp, old_timestamp_and_value);
-      std::cout << "Write to RocksDB response = " << response_write
-                << std::endl;
+      // std::cout << "Write to RocksDB response = " << response_write
+      //           << std::endl;
       if (response_write == -1) {
         return grpc::Status(grpc::StatusCode::ABORTED, "");
       }
@@ -156,7 +156,7 @@ public:
                     now.time_since_epoch())
                     .count();
 
-    std::cout << "Setting client put timestamp = " << timestamp << std::endl;
+    // std::cout << "Setting client put timestamp = " << timestamp << std::endl;
     std::mutex put_response_mutex;
     std::atomic<int> last_server_port_tried = (server_port + write_quorum - 1);
     if (last_server_port_tried > last_port) {
@@ -181,8 +181,8 @@ public:
     uint64_t most_recent_timestamp = 0;
 
     for (const auto &pair : response_values) {
-      std::cout << "Response values = " << pair.first << ", " << pair.second
-                << std::endl;
+      // std::cout << "Response values = " << pair.first << ", " << pair.second
+      //           << std::endl;
       if (pair.second > most_recent_timestamp) {
         old_value = pair.first;
         most_recent_timestamp = pair.second;
@@ -205,16 +205,20 @@ public:
     async_request.set_async_forward_to_all(false);
 
     int last_server_port = last_server_port_tried;
-    std::cout << "LAST SERVER PORT OUTSIDE " << last_server_port << std::endl;
+    // std::cout << "LAST SERVER PORT OUTSIDE " << last_server_port << std::endl;
     last_server_port += 1;
     std::string server_address;
-    bool rev = false;
+    // bool rev = false;
     while (true) {
       if (last_server_port > last_port) {
         last_server_port = first_port + (last_server_port % last_port) - 1;
-        rev = true;
+        if (last_server_port == server_port) {
+          break;
+        }
+        // rev = true;
+        
       }
-      std::cout << last_server_port << " " << server_port << std::endl;
+      // std::cout << last_server_port << " " << server_port << std::endl;
       if (last_server_port == server_port) {
         break;
       }
@@ -253,14 +257,14 @@ public:
     std::thread::id thread_id = std::this_thread::get_id();
     std::string thread_id_str =
         std::to_string(*reinterpret_cast<uint64_t *>(&thread_id));
-    printf("Thread %s completed Put Request %s err message %s\n",
-           thread_id_str.c_str(), server_address.c_str(),
-           status.error_message().c_str());
+    // printf("Thread %s completed Put Request %s err message %s\n",
+    //        thread_id_str.c_str(), server_address.c_str(),
+    //        status.error_message().c_str());
 
-    if (status.ok()) {
-      printf("Thread %s status ok %s\n", thread_id_str.c_str(),
-             server_address.c_str());
-    }
+    // if (status.ok()) {
+    //   printf("Thread %s status ok %s\n", thread_id_str.c_str(),
+    //          server_address.c_str());
+    // }
 
     while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
@@ -277,14 +281,14 @@ public:
       status = kvstore_stubs_map[server_address]->Put(&context_server_put_retry,
                                                       replica_put_request,
                                                       &replica_put_response);
-      printf("Thread %s completed Put Request %s with err message %s inside "
-             "loop\n",
-             thread_id_str.c_str(), server_address.c_str(),
-             status.error_message().c_str());
-      if (status.ok()) {
-        printf("Thread %s status ok %s inside loop\n", thread_id_str.c_str(),
-               server_address.c_str());
-      }
+      // printf("Thread %s completed Put Request %s with err message %s inside "
+      //        "loop\n",
+      //        thread_id_str.c_str(), server_address.c_str(),
+      //        status.error_message().c_str());
+      // if (status.ok()) {
+      //   printf("Thread %s status ok %s inside loop\n", thread_id_str.c_str(),
+      //          server_address.c_str());
+      // }
       requests_tried++;
     }
 
@@ -320,6 +324,17 @@ public:
         &context_server_get, get_request_for_servers, &get_response);
 
     int requests_tried = 1;
+    // std::thread::id thread_id = std::this_thread::get_id();
+    // std::string thread_id_str =
+    //     std::to_string(*reinterpret_cast<uint64_t *>(&thread_id));
+    // printf("Thread %s completed Get Request %s err message %s\n",
+    //        thread_id_str.c_str(), address.c_str(),
+    //        status.error_message().c_str());
+
+    // if (status.ok()) {
+    //   printf("Thread %s status ok %s\n", thread_id_str.c_str(),
+    //          address.c_str());
+    // }
 
     while (requests_tried < write_quorum && !status.ok()) {
       // Retry to some other server
@@ -336,6 +351,14 @@ public:
       status = kvstore_stubs_map[address]->Get(
           &context_server_get_retry, get_request_for_servers, &get_response);
       requests_tried++;
+      // printf("Thread %s completed Get Request inside loop %s err message %s\n",
+      //        thread_id_str.c_str(), address.c_str(),
+      //        status.error_message().c_str());
+
+      // if (status.ok()) {
+      //   printf("Thread %s status ok - inside loop %s\n", thread_id_str.c_str(),
+      //          address.c_str());
+      // }
     }
 
     if (status.ok() && get_response.code() == 0) {
@@ -396,7 +419,7 @@ public:
         for (const auto &pair : server_timestamps) {
           const std::string &address = pair.first;
           uint64_t timestamp = pair.second;
-
+          // std::cout << address << " : Timestamp : " << timestamp << " " << latest_timestamp << std::endl;
           if (timestamp < latest_timestamp) {
             AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
           }
@@ -423,7 +446,9 @@ public:
             kvStore.parseValue(timestamp_and_value, timestamp, value);
         response->set_value(value);
         response->set_timestamp(timestamp);
+        std::cout << "Server GET response value " << value << std::endl;
       }
+      
 
       return Status::OK;
     }
@@ -434,26 +459,24 @@ public:
 
     std::cout << "Received REPLICATE request with key ";
     std::cout << request->key() << std::endl;
-    // std::cout << "with async forward: " << request->async_forward_to_all()
-    //           << std::endl;
 
     std::string old_value;
     int response_write;
 
     response_write =
-        kvStore.write(request->key(), request->value(), 0, old_value);
+        kvStore.write(request->key(), request->value(), request->timestamp(), old_value);
 
     if (response_write == 0 || response_write == 1) {
-      if (request->async_forward_to_all()) {
-        for (auto it = kvstore_stubs_map.begin(); it != kvstore_stubs_map.end();
-             it++) {
-          ReplicateRequest async_request;
-          async_request.set_key(request->key());
-          async_request.set_value(request->value());
-          async_request.set_async_forward_to_all(false);
-          AsyncReplicationHelper(async_request, it->second);
-        }
-      }
+      // if (request->async_forward_to_all()) {
+      //   for (auto it = kvstore_stubs_map.begin(); it != kvstore_stubs_map.end();
+      //        it++) {
+      //     ReplicateRequest async_request;
+      //     async_request.set_key(request->key());
+      //     async_request.set_value(request->value());
+      //     async_request.set_async_forward_to_all(false);
+      //     AsyncReplicationHelper(async_request, it->second);
+      //   }
+      // }
       return Status::OK;
     }
     return grpc::Status(grpc::StatusCode::ABORTED, "");
@@ -594,7 +617,7 @@ void RunServer(std::string &server_address, int total_servers,
   int port = std::stoi(server_address.substr(server_address.find(":") + 1,
                                              server_address.size()));
   KVStoreServiceImpl service(server_address, total_servers,
-                             virtual_servers_for_ch, 3);
+                             virtual_servers_for_ch, 5);
 
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());

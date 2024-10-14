@@ -40,7 +40,11 @@ void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
   std::uniform_int_distribution<> key_len_distrib(1, 128);
   std::uniform_int_distribution<> value_len_distrib(1, 2048);
 
-  assert(kv739_init(server_name) == 0);
+  std::string config_file = "server_connection.txt";
+
+  if (kv739_init((char *)config_file.data()) != 0) {
+    return;
+  }
 
   int total_keys = 1024;
   int hot_key_count = total_keys * 0.1;
