@@ -109,10 +109,10 @@ public:
     this->replication_factor = replication_factor;
     this->write_quorum = (replication_factor + 1) / 2;
     InitializeServerStubs();
-
+    // PutServerInitKey();
     // this->is_recovered_server = isRecoveredServer();
     // if(this->is_recovered_server)
-    //     HandleRecoveryMachine();
+    //     HandleFailedMachineRecovery();
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -496,6 +496,27 @@ public:
     }
   }
 
+  void PutServerInitKey(){
+      std::cout << "Pushing Server Init Key" << std::endl;
+      std::string server_init_key = "#";
+      std::string server_init_value = "";
+      std::uint64_t server_init_timestamp;
+      std::string old_timestamp_and_value;
+
+      auto now = std::chrono::system_clock::now();
+      server_init_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    now.time_since_epoch())
+                    .count();
+
+      int response_write = kvStore.write(server_init_key, server_init_value, server_init_timestamp, old_timestamp_and_value);
+      if(response_write == 0){
+        std::cout << "Successfully pushed server init key" << std::endl;
+      }else if(response_write == -1){
+        std::cerr << "Failed to put server init key in DB" << std::endl;
+        exit(1);
+      }
+  }
+
   bool isRecoveredServer(){
       std::string failed_server_check_key = "#";
       std::string timestamp_and_value;
@@ -513,7 +534,7 @@ public:
       }
   }
 
-  void HandleRecoveryMachine() {
+  void HandleFailedMachineRecovery() {
 
       int server_port;
       std::vector<std::pair<std::string,std::string>> kv_vector;
@@ -564,7 +585,7 @@ public:
       }
 
       std::cout << "Successfully brought up failed machine" << std::endl;
-      
+
   }
 };
 
