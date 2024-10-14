@@ -22,11 +22,13 @@ using kvstore::DieRequest;
 using kvstore::Empty;
 using kvstore::GetReponse;
 using kvstore::GetRequest;
-using kvstore::HeartbeatMessage;
 using kvstore::KVStore;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 using kvstore::ReplicateRequest;
+using kvstore::RestoreServerRequest;
+using kvstore::RestoreServerResponse;
+using kvstore::KeyValuePair;
 
 int getPortNumber(const std::string &address) {
   size_t colon_pos = address.find(':');
@@ -35,25 +37,6 @@ int getPortNumber(const std::string &address) {
   }
 
   return std::stoi(address.substr(colon_pos + 1));
-}
-
-bool parseValue(const std::string combined_value, uint64_t &timestamp,
-                std::string &value) {
-  // Get delimited position
-  size_t delimiter_pos = combined_value.find('|');
-  // std::cout << "Combined value " << combined_value << "  " <<
-  // std::to_string(delimiter_pos) << std::endl;
-  if (delimiter_pos != std::string::npos && delimiter_pos > 0 &&
-      delimiter_pos < combined_value.size() - 1) {
-    timestamp =
-        std::stoull(combined_value.substr(0, delimiter_pos)); // get usigned_int
-    value = combined_value.substr(delimiter_pos +
-                                  1); // Get the value after the delimiter
-    return true;
-  }
-
-  std::cerr << "Error: Invalid format for combined value" << std::endl;
-  return false;
 }
 
 void AsyncReplicationHelper(const ReplicateRequest &request,
@@ -148,7 +131,7 @@ public:
         std::string old_value;
         uint64_t timestamp;
         bool parseSuccessful =
-            parseValue(old_timestamp_and_value, timestamp, old_value);
+            kvStore.parseValue(old_timestamp_and_value, timestamp, old_value);
         response->set_message(old_value);
         response->set_timestamp(timestamp);
       }
@@ -410,7 +393,7 @@ public:
         std::string value;
         uint64_t timestamp;
         bool parseSuccessful =
-            parseValue(timestamp_and_value, timestamp, value);
+            kvStore.parseValue(timestamp_and_value, timestamp, value);
         response->set_value(value);
         response->set_timestamp(timestamp);
       }
@@ -449,56 +432,22 @@ public:
     return grpc::Status(grpc::StatusCode::ABORTED, "");
   }
 
-  Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
-                   Empty *response) override {
-    // std::cout << "Received Heartbeat" << std::endl;
-    std::unique_lock<std::mutex> primary_lock(change_primary);
-    this->last_heartbeat = std::chrono::high_resolution_clock::now();
-    this->primary_address = request->primary();
+  Status RestoreServer(ServerContext *context, const RestoreServerRequest *request,
+                   RestoreServerResponse *response) override {
+    std::cout << "Received Restore Server request \n";
+    std::vector<std::pair<std::string, std::string> > restore_keys = kvStore.getAllLatestKeys(
+      request->timestamp());
+
+    if (restore_keys.size() == 0) {
+      return grpc::Status(grpc::StatusCode::ABORTED, "");
+    }
+
+    for (const auto& kv : restore_keys) {
+        KeyValuePair* pair = response->add_repair_list();
+        pair->set_key(kv.first);
+        pair->set_value(kv.second);
+    }
     return Status::OK;
-  }
-
-  void HeartbeatMechanism() {
-    while (true) {
-      if (is_primary) {
-        SendHeartbeats();
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-      } else {
-        CheckLastHeartbeat();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      }
-    }
-  }
-
-  void CheckLastHeartbeat() {
-    if (last_heartbeat == std::chrono::steady_clock::time_point()) {
-      return;
-    }
-    std::chrono::high_resolution_clock::time_point current_time =
-        std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration_milli =
-        std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(
-            current_time - last_heartbeat);
-    // std::cout << "Last heartbeat " << duration_milli.count() << std::endl;
-    if (duration_milli.count() > 300) {
-      std::unique_lock<std::mutex> primary_lock(change_primary);
-      this->primary_address = server_address;
-      this->is_primary = true;
-      InitializeServerStubs();
-      SendHeartbeats();
-    }
-  }
-
-  void SendHeartbeats() {
-    for (const auto &pair : kvstore_stubs_map) {
-      // std::cout << pair.first << std::endl;
-      HeartbeatMessage message;
-      ClientContext context;
-      Empty response;
-
-      message.set_primary(server_address);
-      pair.second->Heartbeat(&context, message, &response);
-    }
   }
 
   void InitializeServerStubs() {
