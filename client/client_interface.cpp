@@ -22,6 +22,7 @@ using kvstore::PutResponse;
 std::vector<std::string> servers;
 std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
+int connection_try_limit = 5;
 bool is_valid_value(char *value);
 bool is_valid_key(char *key);
 
@@ -45,11 +46,10 @@ int kv739_init(char *config_file) {
     return -1;
   }
   for (const auto &address : servers) {
-    auto channel =
-        grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
+    auto channel = grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
     kvstore_map[address] = kvstore::KVStore::NewStub(channel);
     if (!kvstore_map[address]) {
-      std::cerr << "Failed to create gRPC stub\n";
+        std::cerr << "Failed to create gRPC stub\n";
     }
     grpc_connectivity_state state = channel->GetState(true);
     if (state == GRPC_CHANNEL_SHUTDOWN ||
@@ -95,29 +95,45 @@ int kv739_die(char *server_name, int clean) {
   return 0;
 }
 int kv739_get(char *key, char *value) {
+
+  GetRequest request;
+  GetReponse response;
+  int num_tries;
+
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> random_func(0, servers.size() - 1);
-  int rand_server = random_func(gen);
-  if (!kvstore_map[servers[rand_server]]) {
-    std::cerr << "Client not initialized, call kv739_init\n";
-    return -1;
+  std::shuffle(servers.begin(), servers.end(), gen);
+
+  num_tries = 0;
+
+  for (const auto& rand_server : servers) {
+    if (!kvstore_map[rand_server]) {
+      std::cerr << "Client not initialized, call kv739_init\n";
+      return -1;
+    }
+    if (!is_valid_key(key)) {
+      std::cerr << "Key does not meet the conditions set forth" << std::endl;
+      return -1;
+    }
+    request.set_key(key);
+    request.set_is_client_request(true);
+    
+    ClientContext context;
+    Status status = kvstore_map[rand_server]->Get(&context, request, &response);
+    num_tries++;
+
+    if (!status.ok() ) {
+      std::cerr << "Server Get failed: " << status.error_message() << "\n";
+      if(num_tries == connection_try_limit){
+        std::cerr << "Server Get Connection retry limit reached, Aborting client request" << std::endl;
+        return -1;
+      }
+    }else{
+      std::cout << "Client Get request with key = " << key << " got coordinator server_address = " << rand_server << std::endl;
+      break;
+    }
   }
-  GetRequest request;
-  if (!is_valid_key(key)) {
-    std::cerr << "Key does not meet the conditions set forth" << std::endl;
-    return -1;
-  }
-  request.set_key(key);
-  request.set_is_client_request(true);
-  GetReponse response;
-  ClientContext context;
-  Status status =
-      kvstore_map[servers[rand_server]]->Get(&context, request, &response);
-  if (!status.ok()) {
-    std::cerr << "Server Get failed: " << status.error_message() << "\n";
-    return -1;
-  }
+
   int response_code = response.code();
   if (response_code == 0) {
     strcpy(value, response.value().c_str());
@@ -127,37 +143,55 @@ int kv739_get(char *key, char *value) {
 }
 
 int kv739_put(char *key, char *value, char *old_value) {
+
+  PutRequest request;
+  PutResponse response;
+  int num_tries;
+
   std::random_device rd;
   std::mt19937 gen(rd());
-  std::uniform_int_distribution<> random_func(0, servers.size() - 1);
-  int rand_server = random_func(gen);
-  if (!kvstore_map[servers[rand_server]]) {
-    std::cerr << "Client not initialized, call kv739_init\n";
-    return -1;
-  }
-  PutRequest request;
-  if (is_valid_key(key) && is_valid_value(value)) {
-    request.set_key(key);
-    request.set_value(value);
-    request.set_is_client_request(true);
-    PutResponse response;
-    ClientContext context;
-    Status status =
-        kvstore_map[servers[rand_server]]->Put(&context, request, &response);
-    if (!status.ok()) {
-      std::cerr << "Server Put failed: " << status.error_message() << "\n";
+  std::shuffle(servers.begin(), servers.end(), gen);
+
+  num_tries = 0;
+
+  for (const auto& rand_server : servers) {
+    if (!kvstore_map[rand_server]) {
+      std::cerr << "Client not initialized, call kv739_init\n";
       return -1;
     }
-    int response_code = response.code();
-    if (response_code == 0) {
-      strcpy(old_value, response.message().c_str());
+  
+    if (is_valid_key(key) && is_valid_value(value)) {
+      request.set_key(key);
+      request.set_value(value);
+      request.set_is_client_request(true);
+    
+      ClientContext context;
+      Status status = kvstore_map[rand_server]->Put(&context, request, &response);
+      num_tries++;
+
+      if (!status.ok()) {
+        std::cerr << "Server Put failed: " << status.error_message() << "\n";
+        if(num_tries == connection_try_limit){
+          std::cerr << "Server Put Connection retry limit reached, Aborting client request" << std::endl;
+          return -1;
+        }
+      }else{
+        std::cout << "Client Put request with key = " << key << " got coordinator server_address = " << rand_server << std::endl;
+        break;
+      }
+    } 
+    else {
+      std::cerr << "Key or Value does not meet the conditions set forth" << std::endl;
+      return -1;
     }
-    return response_code;
-  } else {
-    std::cerr << "Key or Value does not meet the conditions set forth"
-              << std::endl;
-    return -1;
   }
+
+  int response_code = response.code();
+  if (response_code == 0) {
+    strcpy(old_value, response.message().c_str());
+  }
+    
+  return response_code;
 }
 
 bool is_valid_key(char *key) {

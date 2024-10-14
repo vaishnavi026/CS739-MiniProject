@@ -104,6 +104,10 @@ keyValueStore::getAllLatestKeys(uint64_t server_timestamp) {
 
     std::string old_value;
     uint64_t timestamp;
+
+    if(key == "$" || key == "#")
+        continue;
+        
     parseValue(value, timestamp, old_value);
 
     std::cout << "Checking key = " << key << " and value = " << value << std::endl;
