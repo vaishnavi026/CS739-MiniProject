@@ -86,6 +86,27 @@ int keyValueStore::write(const std::string &key, const std::string &value,
   return 0;
 }
 
+int keyValueStore::batched_write(std::vector<std::pair<std::string,std::string>> &key_value_batch)
+{
+  rocksdb::WriteBatch batch;
+  rocksdb::Status batch_status;
+
+  for(int i=0;i<key_value_batch.size();i++){
+    batch.Put(key_value_batch[i].first, key_value_batch[i].second);
+  }
+    
+  batch_status = db->Write(rocksdb::WriteOptions(), &batch);
+
+  if (!batch_status.ok()) {
+    std::cerr << "Error writing batch: " << batch_status.ToString() << std::endl;
+    return -1;
+  } else {
+    std::cout << "Batch write successful" << std::endl;
+  }
+
+  return 0;
+}
+
 std::vector<std::pair<std::string, std::string>> keyValueStore::getAllLatestKeys(
   uint64_t server_timestamp)
 {

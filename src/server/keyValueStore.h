@@ -36,6 +36,7 @@ public:
   int read(const std::string &key, std::string &value);
   int write(const std::string &key, const std::string &value,
             std::uint64_t timestamp, std::string &old_value);
+  int batched_write(std::vector<std::pair<std::string,std::string>> &key_value_batch);
   // Get all keys in RocksDB
   std::vector<std::pair<std::string,std::string> > getAllLatestKeys(
     std::uint64_t timestamp);
