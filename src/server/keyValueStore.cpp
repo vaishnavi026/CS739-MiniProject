@@ -59,19 +59,33 @@ int keyValueStore::write(const std::string &key, const std::string &value,
   rocksdb::Status get_status;
   rocksdb::Status put_status;
   rocksdb::WriteBatch batch;
+  std::string get_value_timestamp;
 
   std::cout << "Rocksdb write for key, value, timestamp " << key << ", "
             << value << ", " << timestamp << std::endl;
-  get_status = db->Get(rocksdb::ReadOptions(), key, &old_value);
+  get_status = db->Get(rocksdb::ReadOptions(), key, &get_value_timestamp);
+
+  if (get_status.ok()) {
+    uint64_t get_timestamp;
+    std::string get_value;
+    parseValue(get_value_timestamp, get_timestamp, get_value);
+
+    if (get_timestamp > timestamp) {
+      old_value = std::to_string(timestamp) + "|" + value;
+      return 0;
+    }
+  }
+
   // std::cout << "Old value is " << old_value << std::endl;
   std::string latest_put_key = "$";
   std::string new_value1 = std::to_string(timestamp) + "|" + value;
   std::string new_value2 = std::to_string(timestamp);
 
-  batch.Put(key,new_value1);
-  batch.Put(latest_put_key,new_value2);
+  batch.Put(key, new_value1);
+  batch.Put(latest_put_key, new_value2);
 
-  put_status = db->Write(rocksdb::WriteOptions(),&batch);
+  put_status = db->Write(rocksdb::WriteOptions(), &batch);
+  old_value = get_value_timestamp;
   // put_status = db->Put(rocksdb::WriteOptions(), key, new_value1);
 
   if (!put_status.ok()) {
@@ -105,12 +119,13 @@ keyValueStore::getAllLatestKeys(uint64_t server_timestamp) {
     std::string old_value;
     uint64_t timestamp;
 
-    if(key == "$" || key == "#")
-        continue;
-        
+    if (key == "$" || key == "#")
+      continue;
+
     parseValue(value, timestamp, old_value);
 
-    std::cout << "Checking key = " << key << " and value = " << value << std::endl;
+    std::cout << "Checking key = " << key << " and value = " << value
+              << std::endl;
 
     if (server_timestamp < timestamp) {
       latest_keys.push_back({key, value});
@@ -119,20 +134,22 @@ keyValueStore::getAllLatestKeys(uint64_t server_timestamp) {
   return latest_keys;
 }
 
-int keyValueStore::batched_write(std::vector<std::pair<std::string,std::string>> &key_value_batch)
-{
+int keyValueStore::batched_write(
+    std::vector<std::pair<std::string, std::string>> &key_value_batch) {
   rocksdb::WriteBatch batch;
   rocksdb::Status batch_status;
 
-  for(int i=0;i<key_value_batch.size();i++){
+  for (int i = 0; i < key_value_batch.size(); i++) {
     batch.Put(key_value_batch[i].first, key_value_batch[i].second);
-    std::cout << "Putting key = " << key_value_batch[i].first << " and value = " << key_value_batch[i].second << std::endl;
+    std::cout << "Putting key = " << key_value_batch[i].first
+              << " and value = " << key_value_batch[i].second << std::endl;
   }
-    
+
   batch_status = db->Write(rocksdb::WriteOptions(), &batch);
 
   if (!batch_status.ok()) {
-    std::cerr << "Error writing batch: " << batch_status.ToString() << std::endl;
+    std::cerr << "Error writing batch: " << batch_status.ToString()
+              << std::endl;
     return -1;
   } else {
     std::cout << "Batch write successful" << std::endl;
