@@ -93,6 +93,7 @@ private:
   int replication_factor;
   int write_quorum;
   bool is_recovered_server;
+  bool accept_request;
   //   std::atomic_int writes_completed;
   std::map<std::string, std::unique_ptr<KVStore::Stub>> kvstore_stubs_map;
   std::chrono::high_resolution_clock::time_point last_heartbeat;
@@ -108,6 +109,7 @@ public:
     this->last_port = first_port + total_servers - 1;
     this->replication_factor = replication_factor;
     this->write_quorum = (replication_factor + 1) / 2;
+    this->accept_request = true;
     InitializeServerStubs();
     this->is_recovered_server = isRecoveredServer();
     if (this->is_recovered_server)
@@ -116,6 +118,11 @@ public:
 
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
+    
+    if (accept_request == false) {
+      return grpc::Status(grpc::StatusCode::ABORTED, "");
+    }
+
     std::string key = request->key();
     std::string value = request->value();
     uint64_t timestamp = request->timestamp();
@@ -380,6 +387,10 @@ public:
   Status Get(ServerContext *context, const GetRequest *request,
              GetReponse *response) override {
 
+    if (accept_request == false) {
+      return grpc::Status(grpc::StatusCode::ABORTED, "");
+    }
+
     if (request->is_client_request()) {
       std::cout << "Received client get key = " << request->key() << std::endl;
       std::string server_address = CH.getServer(request->key());
@@ -635,10 +646,12 @@ public:
     if (clean_code == 1) {
       // TODO: If primary, complete state replciation and new election.
       std::cout << "State flushed, server shutting down";
+      accept_request = false;
     } else {
       std::cout << "Server killed";
+      exit(1);
     }
-    exit(1);
+    return Status::OK;
   }
 };
 
