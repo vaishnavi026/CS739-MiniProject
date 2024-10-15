@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
+#include <cstdlib> 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
@@ -23,6 +24,7 @@ std::vector<std::string> servers;
 std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
 int connection_try_limit = 5;
+int restart_try_limit = 15;
 bool is_valid_value(char *value);
 bool is_valid_key(char *key);
 
@@ -95,6 +97,54 @@ int kv739_die(char *server_name, int clean) {
   Empty response;
   request.set_clean(clean);
   temp_stub->Die(&context, request, &response);
+  return 0;
+}
+
+int kv739_restart(char *server_name){
+
+  std::string server_address(server_name);
+  auto channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  std::unique_ptr<kvstore::KVStore::Stub> temp_stub = kvstore::KVStore::NewStub(channel);
+  if (!temp_stub) {
+    std::cerr << "Failed to create gRPC stub\n";
+    return -1;
+  }
+  grpc_connectivity_state state = channel->GetState(true);
+  if (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+    std::cout<< "Failed to establish gRPC channel connection which is expected\n";
+  }else{
+    std::cerr << "Server already started\n" << std::endl;
+    return 0;
+  }
+
+  //Command to restart 
+  int retries = 0;
+
+  while (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
+     std::cout << "Failed to establish gRPC channel connection. Retrying" << std::endl;
+        
+     if (retries == 0) {
+         std::string launch_server_cmd = "./server " + server_address + " " + std::to_string(servers.size());
+          system(launch_server_cmd.c_str());
+          std::cout << "Server restart command issued" << std::endl;
+     }
+
+     sleep(2);
+
+     state = channel->GetState(true);
+        
+     if (retries >= restart_try_limit) {
+       std::cerr << "Failed to restart even after " << restart_try_limit << " tries" << std::endl; 
+       return -1;
+     }
+
+    retries++;
+  }
+
+  //Chaning
+  kvstore_map[server_address] = std::move(temp_stub);
+  std::cout << "Restart of server " << server_address << " successful" << std::endl; 
+
   return 0;
 }
 
