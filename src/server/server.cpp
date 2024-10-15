@@ -119,6 +119,7 @@ public:
   Status Put(ServerContext *context, const PutRequest *request,
              PutResponse *response) override {
     
+    std::cout << "Server accept request status = " << accept_request << std::endl;
     if (accept_request == false) {
       return grpc::Status(grpc::StatusCode::ABORTED, "");
     }
@@ -647,11 +648,12 @@ public:
       // TODO: If primary, complete state replciation and new election.
       std::cout << "State flushed, server shutting down";
       accept_request = false;
+      sleep(15);
     } else {
       std::cout << "Server killed";
-      exit(1);
     }
-    return Status::OK;
+
+    exit(1);
   }
 };
 
