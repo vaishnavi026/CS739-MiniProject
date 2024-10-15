@@ -110,40 +110,58 @@ int kv739_restart(char *server_name){
     return -1;
   }
   grpc_connectivity_state state = channel->GetState(true);
-  if (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
-    std::cout<< "Failed to establish gRPC channel connection which is expected\n";
-  }else{
+  if (state == GRPC_CHANNEL_READY) {
     std::cerr << "Server already started\n" << std::endl;
     return 0;
+  }else{
+    std::cout<< "Failed to establish gRPC channel connection which is expected\n";
   }
 
   //Command to restart 
   int retries = 0;
+  std::string num_servers = std::to_string(servers.size());
+  std::string server_launch_executable = "./server";
+  pid_t pid = fork();
 
-  while (state == GRPC_CHANNEL_SHUTDOWN || state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
-     std::cout << "Failed to establish gRPC channel connection. Retrying" << std::endl;
+  if (pid < 0) {
+    std::cerr << "Server process relaunch failed\n";
+    return -1;
+  }else if (pid == 0) {
+      FILE* devNull = fopen("/dev/null", "w");
+      if (devNull == nullptr) {
+        std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
+        exit(EXIT_FAILURE);
+      }
+
+      dup2(fileno(devNull), STDOUT_FILENO);
+      fclose(devNull);
+
+      char* args[] = {(char*)server_launch_executable.c_str(), (char*)server_address.c_str(), (char*)num_servers.c_str(),nullptr}; 
+      int execvp_status_code = execvp(args[0], args);
+
+      if(execvp_status_code == -1){
+        std::cerr << "Terminated incorrectly\n";
+        exit(EXIT_FAILURE);
+      }
+  } else {
+    sleep(1);
+    while (state != GRPC_CHANNEL_READY) {
+      std::cout << "Failed to establish gRPC channel connection. Retrying" << std::endl;
+      state = channel->GetState(true);
         
-     if (retries == 0) {
-         std::string launch_server_cmd = "./server " + server_address + " " + std::to_string(servers.size());
-          system(launch_server_cmd.c_str());
-          std::cout << "Server restart command issued" << std::endl;
-     }
+      if (retries >= restart_try_limit) {
+        std::cerr << "Failed to restart even after " << restart_try_limit << " tries" << std::endl; 
+        return -1;
+      }
 
-     sleep(2);
+      sleep(2);
 
-     state = channel->GetState(true);
-        
-     if (retries >= restart_try_limit) {
-       std::cerr << "Failed to restart even after " << restart_try_limit << " tries" << std::endl; 
-       return -1;
-     }
+      retries++;
+    }  
 
-    retries++;
+    kvstore_map[server_address] = std::move(temp_stub);
+    std::cout << "Restart of server " << server_address << " successful" << std::endl; 
   }
-
-  //Chaning
-  kvstore_map[server_address] = std::move(temp_stub);
-  std::cout << "Restart of server " << server_address << " successful" << std::endl; 
 
   return 0;
 }
