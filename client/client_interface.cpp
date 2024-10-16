@@ -23,7 +23,7 @@ using kvstore::PutResponse;
 std::vector<std::string> servers;
 std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
-int connection_try_limit = 5;
+int connection_try_limit = 15;
 int restart_try_limit = 15;
 bool is_valid_value(char *value);
 bool is_valid_key(char *key);
@@ -123,7 +123,7 @@ int kv739_restart(char *server_name) {
   // Command to restart
   int retries = 0;
   std::string num_servers = std::to_string(servers.size());
-  std::string server_launch_executable = "./server";
+  std::string server_launch_executable = "./kvstore_server";
   pid_t pid = fork();
 
   if (pid < 0) {
@@ -204,7 +204,6 @@ int kv739_get(char *key, char *value) {
     num_tries++;
 
     if (!status.ok()) {
-      std::cerr << "Server Get failed: " << status.error_message() << "\n";
       if (num_tries == connection_try_limit) {
         std::cerr << "Server Get Connection retry limit reached, Aborting "
                      "client request"
@@ -212,9 +211,6 @@ int kv739_get(char *key, char *value) {
         return -1;
       }
     } else {
-      std::cout << "Client Get request with key = " << key
-                << " got coordinator server_address = " << rand_server
-                << std::endl;
       break;
     }
   }
@@ -260,7 +256,6 @@ int kv739_put(char *key, char *value, char *old_value) {
     num_tries++;
 
     if (!status.ok()) {
-      std::cerr << "Server Put failed: " << status.error_message() << "\n";
       if (num_tries == connection_try_limit) {
         std::cerr << "Server Put Connection retry limit reached, Aborting "
                      "client request"
@@ -268,9 +263,6 @@ int kv739_put(char *key, char *value, char *old_value) {
         return -1;
       }
     } else {
-      std::cout << "Client Put request with key = " << key
-                << " got coordinator server_address = " << rand_server
-                << std::endl;
       break;
     }
   }
