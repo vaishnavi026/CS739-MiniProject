@@ -356,77 +356,76 @@ public:
     return false;
   }
 
-  void
-  fetchServerData(int port, const std::string &key,
-                  std::atomic<int> &last_server_port_tried,
-                  std::mutex &value_mtx, uint64_t &latest_timestamp,
-                  std::string &latest_value,
-                  std::unordered_map<std::string, uint64_t> &server_timestamps,
-                  std::unordered_set<int> &replicate_servers_tried) {
-    if (port > last_port) {
-      port = first_port + (port % last_port) - 1;
-    }
-    std::string address("0.0.0.0:" + std::to_string(port));
+  bool FetchServerData(
+      int server_port, const std::string &key, std::mutex &value_mtx,
+      uint64_t &latest_timestamp, std::string &latest_value,
+      std::unordered_map<std::string, uint64_t> &server_timestamps) {
+    std::string address("0.0.0.0:" + std::to_string(server_port));
     ClientContext context_server_get;
     GetReponse get_response;
     GetRequest get_request_for_servers;
     get_request_for_servers.set_is_client_request(false);
     get_request_for_servers.set_key(key);
 
-    Status status = kvstore_stubs_map.at(address)->Get(
+    Status status = kvstore_stubs_map[address]->Get(
         &context_server_get, get_request_for_servers, &get_response);
 
-    int requests_tried = 1;
-    std::thread::id thread_id = std::this_thread::get_id();
-    std::string thread_id_str =
-        std::to_string(*reinterpret_cast<uint64_t *>(&thread_id));
-    printf("Thread %s completed Get Request %s err message %s\n",
-           thread_id_str.c_str(), address.c_str(),
-           status.error_message().c_str());
+    // int requests_tried = 1;
+    // std::thread::id thread_id = std::this_thread::get_id();
+    // std::string thread_id_str =
+    //     std::to_string(*reinterpret_cast<uint64_t *>(&thread_id));
+    // printf("Thread %s completed Get Request %s err message %s\n",
+    //        thread_id_str.c_str(), address.c_str(),
+    //        status.error_message().c_str());
+
+    // if (status.ok()) {
+    //   printf("Thread %s status ok %s\n", thread_id_str.c_str(),
+    //          address.c_str());
+    // }
+
+    // while (requests_tried < write_quorum && !status.ok()) {
+    //   // Retry to some other server
+    //   int next_server_port = ++last_server_port_tried;
+    //   if (next_server_port > last_port) {
+    //     next_server_port = first_port + (next_server_port % last_port) - 1;
+    //   }
+    //   if (next_server_port == port) {
+    //     return;
+    //   }
+
+    //   address = "0.0.0.0:" + std::to_string(next_server_port);
+    //   ClientContext context_server_get_retry;
+    //   status = kvstore_stubs_map[address]->Get(
+    //       &context_server_get_retry, get_request_for_servers, &get_response);
+    //   requests_tried++;
+    //   printf("Thread %s completed Get Request inside loop %s err message
+    //   %s\n",
+    //          thread_id_str.c_str(), address.c_str(),
+    //          status.error_message().c_str());
+
+    //   if (status.ok()) {
+    //     printf("Thread %s status ok - inside loop %s\n",
+    //     thread_id_str.c_str(),
+    //            address.c_str());
+    //   }
+    // }
 
     if (status.ok()) {
-      printf("Thread %s status ok %s\n", thread_id_str.c_str(),
-             address.c_str());
-    }
-    
-    while (requests_tried < write_quorum && !status.ok()) {
-      // Retry to some other server
-      int next_server_port = ++last_server_port_tried;
-      if (next_server_port > last_port) {
-        next_server_port = first_port + (next_server_port % last_port) - 1;
-              }
-      if (next_server_port == port) {
-        return;
+      if (get_response.code() == 0) {
+        uint64_t timestamp = get_response.timestamp();
+        std::string value = get_response.value();
+        std::lock_guard<std::mutex> lock(value_mtx);
+        server_timestamps[address] = timestamp;
+        // Update the latest timestamp and value if this server has the most
+        // recent data
+        if (timestamp > latest_timestamp) {
+          latest_timestamp = timestamp;
+          latest_value = value;
+        }
       }
-
-      address = "0.0.0.0:" + std::to_string(next_server_port);
-      ClientContext context_server_get_retry;
-      status = kvstore_stubs_map[address]->Get(
-          &context_server_get_retry, get_request_for_servers, &get_response);
-      requests_tried++;
-      printf("Thread %s completed Get Request inside loop %s err message %s\n",
-             thread_id_str.c_str(), address.c_str(),
-             status.error_message().c_str());
-
-      if (status.ok()) {
-        printf("Thread %s status ok - inside loop %s\n", thread_id_str.c_str(),
-               address.c_str());
-      }
+      return true;
     }
-
-    if (status.ok() && get_response.code() == 0) {
-      uint64_t timestamp = get_response.timestamp();
-      std::string value = get_response.value();
-      value_mtx.lock();
-      server_timestamps[address] = timestamp;
-      // Update the latest timestamp and value if this server has the most
-      // recent data
-      if (timestamp > latest_timestamp) {
-        latest_timestamp = timestamp;
-        latest_value = value;
-      }
-      value_mtx.unlock();
-    }
+    return false;
   }
 
   Status Get(ServerContext *context, const GetRequest *request,
@@ -436,43 +435,108 @@ public:
       return grpc::Status(grpc::StatusCode::ABORTED, "");
     }
 
+    std::string key = request->key();
+
     if (request->is_client_request()) {
-      std::cout << "Received client get key = " << request->key() << std::endl;
-      std::string server_address = CH.getServer(request->key());
-      int port = getPortNumber(server_address);
-      std::unordered_set<int> replicate_servers_tried;
+      std::cout << "Received client get key = " << key << std::endl;
+      std::string hashed_server = CH.getServer(key);
+      int hashed_server_port = getPortNumber(hashed_server);
+
       uint64_t latest_timestamp = 0;
       std::string latest_value;
       std::unordered_map<std::string, uint64_t> server_timestamps;
       std::mutex value_mtx;
-      std::vector<std::thread> get_threads;
-      std::atomic<int> last_server_port_tried = (port + read_write_quorum - 1);
-      if (last_server_port_tried > last_port) {
-        last_server_port_tried =
-            first_port + (last_server_port_tried % last_port) - 1;
-      }
+
+      std::vector<std::future<bool>> futures;
+      std::unordered_set<int> ports_tried;
+      int server_port;
 
       for (int i = 0; i < read_write_quorum; i++) {
-        get_threads.emplace_back(
-            &KVStoreServiceImpl::fetchServerData, this, port + i,
-            request->key(), std::ref(last_server_port_tried),
-            std::ref(value_mtx), std::ref(latest_timestamp),
-            std::ref(latest_value), std::ref(server_timestamps),
-            std::ref(replicate_servers_tried));
+        server_port = hashed_server_port + i;
+        if (server_port > last_port) {
+          server_port = first_port + (server_port % last_port) - 1;
+        }
+
+        futures.push_back(std::async(
+            std::launch::async, &KVStoreServiceImpl::FetchServerData, this,
+            server_port, key, std::ref(value_mtx), std::ref(latest_timestamp),
+            std::ref(latest_value), std::ref(server_timestamps)));
+        ports_tried.insert(server_port);
       }
 
-      for (auto &t : get_threads) {
-        t.join();
+      int retry_count = 0;
+      int max_retry_count = static_cast<int>(0.75 * total_servers);
+      int successful_reads = 0;
+
+      while (successful_reads < read_write_quorum &&
+             retry_count < max_retry_count &&
+             ports_tried.size() < total_servers) {
+        for (int i = 0; i < futures.size(); i++) {
+          std::future_status status;
+          auto &f = futures[i];
+          if (f.valid()) {
+            status = f.wait_for(std::chrono::seconds(0));
+            if (status == std::future_status::ready) {
+              bool result = f.get();
+              // std::cout << "Result for f is " << result << std::endl;
+              if (!result) {
+                // std::cout << "Result failed " << result << std::endl;
+                while (ports_tried.size() < total_servers &&
+                       ports_tried.contains(server_port)) {
+                  server_port += 1;
+                  if (server_port > last_port) {
+                    server_port = first_port + (server_port % last_port) - 1;
+                  }
+                }
+
+                std::cout << "Retrying quorum read at port " << server_port
+                          << std::endl;
+                futures[i] = std::move(std::async(
+                    std::launch::async, &KVStoreServiceImpl::FetchServerData,
+                    this, server_port, key, std::ref(value_mtx),
+                    std::ref(latest_timestamp), std::ref(latest_value),
+                    std::ref(server_timestamps)));
+                ports_tried.insert(server_port);
+                retry_count += 1;
+              } else {
+                // std::cout << "Result passed " << result << std::endl;
+                successful_reads += 1;
+              }
+            }
+          }
+        }
       }
-      std::cout << "Client GET response value " << latest_value << std::endl;
+
+      if (successful_reads < read_write_quorum) {
+        for (auto &f : futures) {
+          if (f.valid()) {
+            f.wait();
+            if (f.get()) {
+              successful_reads += 1;
+            }
+          }
+        }
+      }
+
+      int response_code = 1;
+
+      if (successful_reads == 0) {
+        response_code = -1;
+      }
+
+      // std::cout << "Client GET response value " << latest_value << std::endl;
+
       if (latest_value != "") {
+        response_code = 0;
         response->set_value(latest_value);
 
         ReplicateRequest async_request;
-        async_request.set_key(request->key());
+        async_request.set_key(key);
         async_request.set_value(latest_value);
         async_request.set_timestamp(latest_timestamp);
-        std::cout << "Sending async repair" << std::endl;
+
+        // std::cout << "Sending async repair" << std::endl;
+
         for (const auto &pair : server_timestamps) {
           const std::string &address = pair.first;
           uint64_t timestamp = pair.second;
@@ -482,14 +546,14 @@ public:
             AsyncReplicationHelper(async_request, kvstore_stubs_map[address]);
           }
         }
-      } else {
-        response->set_code(1);
       }
+
+      response->set_code(response_code);
       return Status::OK;
     } else {
       std::string timestamp_and_value;
       int response_read;
-      response_read = kvStore.read(request->key(), timestamp_and_value);
+      response_read = kvStore.read(key, timestamp_and_value);
 
       if (response_read == -1) {
         return grpc::Status(grpc::StatusCode::ABORTED, "");
@@ -500,11 +564,10 @@ public:
       if (response_read == 0) {
         std::string value;
         uint64_t timestamp;
-        bool parseSuccessful =
-            kvStore.parseValue(timestamp_and_value, timestamp, value);
+        kvStore.parseValue(timestamp_and_value, timestamp, value);
         response->set_value(value);
         response->set_timestamp(timestamp);
-        std::cout << "Server GET response value " << value << std::endl;
+        // std::cout << "Server GET response value " << value << std::endl;
       }
 
       return Status::OK;
