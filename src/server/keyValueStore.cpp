@@ -10,7 +10,7 @@
 
 keyValueStore::keyValueStore(std::string &server_address) {
   options.create_if_missing = true;
-  std::string db_name = "rocksdb_" + server_address;
+  std::string db_name = "db_" + server_address;
   rocksdb::Status status = rocksdb::DB::Open(options, db_name, &db);
   if (!status.ok()) {
     std::cerr << "Error opening database: " << status.ToString() << std::endl;
