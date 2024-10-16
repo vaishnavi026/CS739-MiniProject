@@ -143,14 +143,14 @@ void run_performance_test(char *server_name, int num_requests) {
 }
 
 int main(int argc, char **argv) {
-  std::string server_address("0.0.0.0:50051");
+  std::string config_file = "server_connection.txt";
   int num_requests = 100000;
   if (argc > 1) {
     num_requests = std::atoi(argv[1]);
     if (argc == 3)
-      server_address = argv[2];
+      config_file = argv[2];
   }
-  run_performance_test(server_address.data(), num_requests);
+  run_performance_test(config_file.data(), num_requests);
 
   return 0;
 }
