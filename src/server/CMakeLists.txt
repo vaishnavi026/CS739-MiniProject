@@ -13,8 +13,8 @@ include_directories(${ROCKSDB_INCLUDE_DIR})
 
 add_library(keyValueStoreLib keyValueStore.cpp)
 
-add_executable(server server.cpp)
-    target_link_libraries(server
+add_executable(kvstore_server server.cpp)
+    target_link_libraries(kvstore_server
 	    keyValueStoreLib
         KeyValueController_proto_grpc
         ${SQLite3_LIBRARIES}

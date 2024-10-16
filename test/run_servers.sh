@@ -1,5 +1,8 @@
 #!/bin/bash
 
+pkill -9 -f "kvstore_server"
+rm -r db_* *.log *.config
+
 # Check if the number of servers (n) is provided as an argument
 if [ "$#" -ne 1 ]; then
     echo "Usage: $0 <number_of_servers>"
@@ -14,13 +17,15 @@ start_port=50051
 # Loop to run n servers
 for ((i=0; i<n; i++)); do
     port=$((start_port + i))
-    log_file="ACC${port}.log"
+    log_file="${port}.log"
     
     # Run the server in the background and redirect output to the log file
-    ./server 0.0.0.0:$port $n > "$log_file" 2>&1 &
-    
-    echo "Started server on port $port, logging to $log_file"
+    ./kvstore_server 0.0.0.0:$port $n > "$log_file" 2>&1 &
+    echo "0.0.0.0:$port" >> $n.config
+    echo "Starting server on port $port, logging to $log_file"
 done
 
+echo "Wait for all servers to startup"
 # Wait for all background jobs to finish
-wait
+sleep 10
+echo "All servers started"
