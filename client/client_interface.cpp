@@ -1,6 +1,7 @@
 #include "client_interface.h"
 #include "KeyValueController.grpc.pb.h"
 #include "KeyValueController.pb.h"
+#include <cstdlib>
 #include <fstream>
 #include <grpcpp/grpcpp.h>
 #include <iostream>
@@ -8,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
-#include <cstdlib> 
 using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
@@ -100,11 +100,13 @@ int kv739_die(char *server_name, int clean) {
   return 0;
 }
 
-int kv739_restart(char *server_name){
+int kv739_restart(char *server_name) {
 
   std::string server_address(server_name);
-  auto channel = grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
-  std::unique_ptr<kvstore::KVStore::Stub> temp_stub = kvstore::KVStore::NewStub(channel);
+  auto channel =
+      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  std::unique_ptr<kvstore::KVStore::Stub> temp_stub =
+      kvstore::KVStore::NewStub(channel);
   if (!temp_stub) {
     std::cerr << "Failed to create gRPC stub\n";
     return -1;
@@ -113,11 +115,12 @@ int kv739_restart(char *server_name){
   if (state == GRPC_CHANNEL_READY) {
     std::cerr << "Server already started\n" << std::endl;
     return 0;
-  }else{
-    std::cout<< "Failed to establish gRPC channel connection which is expected\n";
+  } else {
+    std::cout
+        << "Failed to establish gRPC channel connection which is expected\n";
   }
 
-  //Command to restart 
+  // Command to restart
   int retries = 0;
   std::string num_servers = std::to_string(servers.size());
   std::string server_launch_executable = "./server";
@@ -126,41 +129,46 @@ int kv739_restart(char *server_name){
   if (pid < 0) {
     std::cerr << "Server process relaunch failed\n";
     return -1;
-  }else if (pid == 0) {
-      FILE* devNull = fopen("/dev/null", "w");
-      if (devNull == nullptr) {
-        std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
-        exit(EXIT_FAILURE);
-      }
+  } else if (pid == 0) {
+    FILE *devNull = fopen("/dev/null", "w");
+    if (devNull == nullptr) {
+      std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
+      exit(EXIT_FAILURE);
+    }
 
-      dup2(fileno(devNull), STDOUT_FILENO);
-      fclose(devNull);
+    dup2(fileno(devNull), STDOUT_FILENO);
+    fclose(devNull);
 
-      char* args[] = {(char*)server_launch_executable.c_str(), (char*)server_address.c_str(), (char*)num_servers.c_str(),nullptr}; 
-      int execvp_status_code = execvp(args[0], args);
+    char *args[] = {(char *)server_launch_executable.c_str(),
+                    (char *)server_address.c_str(), (char *)num_servers.c_str(),
+                    nullptr};
+    int execvp_status_code = execvp(args[0], args);
 
-      if(execvp_status_code == -1){
-        std::cerr << "Terminated incorrectly\n";
-        exit(EXIT_FAILURE);
-      }
+    if (execvp_status_code == -1) {
+      std::cerr << "Terminated incorrectly\n";
+      exit(EXIT_FAILURE);
+    }
   } else {
     sleep(1);
     while (state != GRPC_CHANNEL_READY) {
-      std::cout << "Failed to establish gRPC channel connection. Retrying" << std::endl;
+      std::cout << "Failed to establish gRPC channel connection. Retrying"
+                << std::endl;
       state = channel->GetState(true);
-        
+
       if (retries >= restart_try_limit) {
-        std::cerr << "Failed to restart even after " << restart_try_limit << " tries" << std::endl; 
+        std::cerr << "Failed to restart even after " << restart_try_limit
+                  << " tries" << std::endl;
         return -1;
       }
 
       sleep(2);
 
       retries++;
-    }  
+    }
 
     kvstore_map[server_address] = std::move(temp_stub);
-    std::cout << "Restart of server " << server_address << " successful" << std::endl; 
+    std::cout << "Restart of server " << server_address << " successful"
+              << std::endl;
   }
 
   return 0;
