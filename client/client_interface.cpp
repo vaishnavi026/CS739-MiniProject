@@ -6,6 +6,7 @@
 #include <grpcpp/grpcpp.h>
 #include <iostream>
 #include <random>
+#include <ranges>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -25,6 +26,7 @@ std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
 int connection_try_limit = 15;
 int restart_try_limit = 15;
+int total_servers;
 bool is_valid_value(char *value);
 bool is_valid_key(char *key);
 
@@ -43,6 +45,7 @@ int kv739_init(char *config_file) {
     }
   }
   file.close();
+  total_servers = servers.size();
   if (servers.empty()) {
     std::cerr << "No valid servers found in config file\n";
     return -1;
@@ -180,9 +183,12 @@ int kv739_get(char *key, char *value) {
   GetReponse response;
   int num_tries;
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::shuffle(servers.begin(), servers.end(), gen);
+  std::vector<int> server_ports(connection_try_limit);
+  auto gen = std::mt19937{std::random_device{}()};
+  std::ranges::sample(std::views::iota(50051, 50051 + total_servers),
+                      server_ports.begin(), connection_try_limit, gen);
+  std::ranges::shuffle(server_ports, gen);
+  std::string server_address;
 
   if (!is_valid_key(key)) {
     std::cerr << "Key does not meet the conditions set forth" << std::endl;
@@ -194,13 +200,16 @@ int kv739_get(char *key, char *value) {
 
   num_tries = 0;
 
-  for (const auto &rand_server : servers) {
-    if (!kvstore_map[rand_server]) {
-      std::cerr << "Client not initialized, call kv739_init\n";
+  for (int port : server_ports) {
+    server_address = "0.0.0.0:" + std::to_string(port);
+
+    if (!kvstore_map[server_address]) {
+      std::cerr << "Client not initialized in kv739_get, call kv739_init\n";
       return -1;
     }
     ClientContext context;
-    Status status = kvstore_map[rand_server]->Get(&context, request, &response);
+    Status status =
+        kvstore_map[server_address]->Get(&context, request, &response);
     num_tries++;
 
     if (!status.ok()) {
@@ -229,9 +238,12 @@ int kv739_put(char *key, char *value, char *old_value) {
   PutResponse response;
   int num_tries;
 
-  std::random_device rd;
-  std::mt19937 gen(rd());
-  std::shuffle(servers.begin(), servers.end(), gen);
+  std::vector<int> server_ports(connection_try_limit);
+  auto gen = std::mt19937{std::random_device{}()};
+  std::ranges::sample(std::views::iota(50051, 50051 + total_servers),
+                      server_ports.begin(), connection_try_limit, gen);
+  std::ranges::shuffle(server_ports, gen);
+  std::string server_address;
 
   if (!is_valid_key(key) || !is_valid_value(value)) {
     std::cerr << "Key or Value does not meet the conditions set forth"
@@ -245,14 +257,17 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   num_tries = 0;
 
-  for (const auto &rand_server : servers) {
-    if (!kvstore_map[rand_server]) {
-      std::cerr << "Client not initialized, call kv739_init\n";
+  for (int port : server_ports) {
+    server_address = "0.0.0.0:" + std::to_string(port);
+
+    if (!kvstore_map[server_address]) {
+      std::cerr << "Client not initialized in kv739_put, call kv739_init\n";
       return -1;
     }
 
     ClientContext context;
-    Status status = kvstore_map[rand_server]->Put(&context, request, &response);
+    Status status =
+        kvstore_map[server_address]->Put(&context, request, &response);
     num_tries++;
 
     if (!status.ok()) {

@@ -11,4 +11,6 @@ int kv739_put(char *key, char *value, char *old_value);
 
 int kv739_die(char *server_name, int clean);
 
+int kv739_restart(char *server_name);
+
 #endif
