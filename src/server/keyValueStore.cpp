@@ -24,8 +24,7 @@ bool keyValueStore::parseValue(const std::string combined_value,
                                uint64_t &timestamp, std::string &value) {
   // Get delimited position
   size_t delimiter_pos = combined_value.find('|');
-  // std::cout << "Combined value " << combined_value << "  " <<
-  // std::to_string(delimiter_pos) << std::endl;
+
   if (delimiter_pos != std::string::npos && delimiter_pos > 0 &&
       delimiter_pos < combined_value.size() - 1) {
     timestamp =
@@ -61,8 +60,6 @@ int keyValueStore::write(const std::string &key, const std::string &value,
   rocksdb::WriteBatch batch;
   std::string get_value_timestamp;
 
-  std::cout << "Rocksdb write for key, value, timestamp " << key << ", "
-            << value << ", " << timestamp << std::endl;
   get_status = db->Get(rocksdb::ReadOptions(), key, &get_value_timestamp);
 
   if (get_status.ok()) {
@@ -76,7 +73,6 @@ int keyValueStore::write(const std::string &key, const std::string &value,
     }
   }
 
-  // std::cout << "Old value is " << old_value << std::endl;
   std::string latest_put_key = "$";
   std::string new_value1 = std::to_string(timestamp) + "|" + value;
   std::string new_value2 = std::to_string(timestamp);
@@ -124,9 +120,6 @@ keyValueStore::getAllLatestKeys(uint64_t server_timestamp) {
 
     parseValue(value, timestamp, old_value);
 
-    std::cout << "Checking key = " << key << " and value = " << value
-              << std::endl;
-
     if (server_timestamp < timestamp) {
       latest_keys.push_back({key, value});
     }
@@ -141,8 +134,6 @@ int keyValueStore::batched_write(
 
   for (int i = 0; i < key_value_batch.size(); i++) {
     batch.Put(key_value_batch[i].first, key_value_batch[i].second);
-    std::cout << "Putting key = " << key_value_batch[i].first
-              << " and value = " << key_value_batch[i].second << std::endl;
   }
 
   batch_status = db->Write(rocksdb::WriteOptions(), &batch);
@@ -151,8 +142,6 @@ int keyValueStore::batched_write(
     std::cerr << "Error writing batch: " << batch_status.ToString()
               << std::endl;
     return -1;
-  } else {
-    std::cout << "Batch write successful" << std::endl;
   }
 
   return 0;
