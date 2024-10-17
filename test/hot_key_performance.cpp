@@ -31,7 +31,7 @@ std::string generate_random_string(size_t length, std::mt19937 &gen) {
   return random_string;
 }
 
-void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
+void hot_key_reqs(char *config_file, perf_metrics *metrics, int num_requests) {
   char old_value[2049];
   char value[2049];
   srand(time(NULL));
@@ -40,9 +40,7 @@ void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
   std::uniform_int_distribution<> key_len_distrib(1, 128);
   std::uniform_int_distribution<> value_len_distrib(1, 2048);
 
-  std::string config_file = "server_connection.txt";
-
-  if (kv739_init((char *)config_file.data()) != 0) {
+  if (kv739_init(config_file) != 0) {
     return;
   }
 
@@ -121,10 +119,10 @@ void hot_key_reqs(char *server_name, perf_metrics *metrics, int num_requests) {
   assert(kv739_shutdown() == 0);
 }
 
-void run_performance_test(char *server_name, int num_requests) {
+void run_performance_test(char *config_file, int num_requests) {
   perf_metrics metrics;
 
-  hot_key_reqs(server_name, &metrics, num_requests);
+  hot_key_reqs(config_file, &metrics, num_requests);
 
   double throughput = metrics.total_requests / (metrics.total_latency_ns / 1e9);
   double average_latency_ms =
