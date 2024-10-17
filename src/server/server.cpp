@@ -91,14 +91,12 @@ public:
     if (accept_request == false) {
       return grpc::Status(grpc::StatusCode::ABORTED, "");
     }
-    std::cout << "Server Put Request Accepted" << std::endl;
 
     std::string key = request->key();
     std::string value = request->value();
     uint64_t timestamp = request->timestamp();
 
     if (!request->is_client_request()) {
-      std::cout << "Server Put Request from Server Accepted" << std::endl;
       std::string old_timestamp_and_value;
       int response_write =
           kvStore.write(key, value, timestamp, old_timestamp_and_value);
@@ -117,10 +115,8 @@ public:
         response->set_message(old_value);
         response->set_timestamp(timestamp);
       }
-      std::cout << "Server Put Request from Server Returned" << std::endl;
       return Status::OK;
     }
-    std::cout << "Server Put Request from Client Accepted" << std::endl;
     std::string hashed_server = CH.getServer(key);
     int hashed_server_port = getPortNumber(hashed_server);
 
@@ -235,7 +231,6 @@ public:
         }
       }
     }
-    std::cout << "Server Put Request from Client Returned" << std::endl;
     response->set_code(response_code);
     return Status::OK;
   }
@@ -523,7 +518,7 @@ public:
   }
 
   void HandleFailedMachineRecovery() {
-
+    std::cout << "Machine Recovery Started" << std::endl;
     int server_port;
     std::vector<std::pair<std::string, std::string>> kv_vector;
     uint64_t last_written_timestamp;
