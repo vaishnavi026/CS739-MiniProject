@@ -5,7 +5,7 @@
 
 int main(int argc, char **argv) {
 
-  std::string server_name = "0.0.0.0:50051";
+  std::string server_name = "127.0.0.1:50051";
   std::string config_file = "server_connection.txt";
   int put_result, get_result;
 
@@ -80,7 +80,8 @@ int main(int argc, char **argv) {
   //               << value << ", Observed read value = " << get_value2 << "\n";
   // } else if (get_result == 1) {
   //   std::cout
-  //       << "FAIL : Reading value present : Expected response 0, observed 1\n";
+  //       << "FAIL : Reading value present : Expected response 0, observed
+  //       1\n";
   // } else if (get_result == -1) {
   //   std::cout << "FAIL : DB Failure or Problem in Key or Client did not "
   //                "receive packet due to network issues\n";

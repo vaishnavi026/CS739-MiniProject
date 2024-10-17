@@ -14,7 +14,7 @@ void get_value_from_store(char *key, char *result_buffer) {
 }
 
 int main(int argc, char **argv) {
-  char server_name[] = "0.0.0.0:50051";
+  char server_name[] = "127.0.0.1:50051";
   if (kv739_init(server_name) != 0) {
     return -1;
   }

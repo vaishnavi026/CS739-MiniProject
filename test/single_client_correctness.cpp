@@ -4,7 +4,7 @@
 
 int main(int argc, char **argv) {
 
-  std::string server_name = "0.0.0.0:50051";
+  std::string server_name = "127.0.0.1:50051";
   std::string config_file = "server_connection.txt";
 
   if (argc > 1) {

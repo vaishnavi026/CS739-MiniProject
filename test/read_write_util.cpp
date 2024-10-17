@@ -4,7 +4,7 @@
 
 int main(int argc, char **argv) {
 
-  std::string server_name = "0.0.0.0:50051";
+  std::string server_name = "127.0.0.1:50051";
   std::string write_key = "";
   std::string write_value = "";
   std::string read_key = "";

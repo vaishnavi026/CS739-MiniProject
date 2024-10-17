@@ -111,7 +111,7 @@ void run_performance_test(char *server_name, int num_requests) {
 }
 
 int main(int argc, char **argv) {
-  std::string server_address("0.0.0.0:50051");
+  std::string server_address("127.0.0.1:50051");
   int num_requests = 100000;
   if (argc > 1) {
     num_requests = std::atoi(argv[1]);
