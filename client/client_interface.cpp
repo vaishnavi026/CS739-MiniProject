@@ -201,7 +201,7 @@ int kv739_get(char *key, char *value) {
   num_tries = 0;
 
   for (int port : server_ports) {
-    server_address = std::string("0.0.0.0:") + std::to_string(port);
+    server_address = std::string("127.0.0.1:") + std::to_string(port);
 
     if (!kvstore_map[server_address]) {
       std::cerr << server_address << std::endl;
@@ -214,6 +214,7 @@ int kv739_get(char *key, char *value) {
     num_tries++;
 
     if (!status.ok()) {
+      std::cerr << "Failed for server " << server_address << std::endl;
       if (num_tries == connection_try_limit) {
         std::cerr << "Server Get Connection retry limit reached, Aborting "
                      "client request"
@@ -259,7 +260,7 @@ int kv739_put(char *key, char *value, char *old_value) {
   num_tries = 0;
 
   for (int port : server_ports) {
-    server_address = std::string("0.0.0.0:") + std::to_string(port);
+    server_address = std::string("127.0.0.1:") + std::to_string(port);
 
     if (!kvstore_map[server_address]) {
       std::cerr << server_address << std::endl;
@@ -273,6 +274,7 @@ int kv739_put(char *key, char *value, char *old_value) {
     num_tries++;
 
     if (!status.ok()) {
+      std::cerr << "Failed for server " << server_address << std::endl;
       if (num_tries == connection_try_limit) {
         std::cerr << "Server Put Connection retry limit reached, Aborting "
                      "client request"

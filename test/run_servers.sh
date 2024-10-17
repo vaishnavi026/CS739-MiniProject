@@ -20,8 +20,8 @@ for ((i=0; i<n; i++)); do
     log_file="${port}.log"
     
     # Run the server in the background and redirect output to the log file
-    ./kvstore_server 0.0.0.0:$port $n > "$log_file" 2>&1 &
-    echo "0.0.0.0:$port" >> $n.config
+    ./kvstore_server 127.0.0.1:$port $n > "$log_file" 2>&1 &
+    echo "127.0.0.1:$port" >> $n.config
     echo "Starting server on port $port, logging to $log_file"
 done
 

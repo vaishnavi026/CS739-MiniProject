@@ -91,12 +91,14 @@ public:
     if (accept_request == false) {
       return grpc::Status(grpc::StatusCode::ABORTED, "");
     }
+    std::cout << "Server Put Request Accepted" << std::endl;
 
     std::string key = request->key();
     std::string value = request->value();
     uint64_t timestamp = request->timestamp();
 
     if (!request->is_client_request()) {
+      std::cout << "Server Put Request from Server Accepted" << std::endl;
       std::string old_timestamp_and_value;
       int response_write =
           kvStore.write(key, value, timestamp, old_timestamp_and_value);
@@ -115,10 +117,10 @@ public:
         response->set_message(old_value);
         response->set_timestamp(timestamp);
       }
-
+      std::cout << "Server Put Request from Server Returned" << std::endl;
       return Status::OK;
     }
-
+    std::cout << "Server Put Request from Client Accepted" << std::endl;
     std::string hashed_server = CH.getServer(key);
     int hashed_server_port = getPortNumber(hashed_server);
 
@@ -227,13 +229,13 @@ public:
 
       for (int p = first_port; p <= last_port; p++) {
         if (!ports_tried.contains(p)) {
-          server_address = "0.0.0.0:" + std::to_string(p);
+          server_address = std::string("127.0.0.1:") + std::to_string(p);
           AsyncReplicationHelper(async_request,
                                  kvstore_stubs_map[server_address]);
         }
       }
     }
-
+    std::cout << "Server Put Request from Client Returned" << std::endl;
     response->set_code(response_code);
     return Status::OK;
   }
@@ -242,7 +244,7 @@ public:
       int server_port, const std::string &key, const std::string &value,
       uint64_t timestamp, std::mutex &put_response_mutex,
       std::vector<std::pair<std::string, uint64_t>> &response_values) {
-    std::string server_address("0.0.0.0:" + std::to_string(server_port));
+    std::string server_address("127.0.0.1:" + std::to_string(server_port));
     ClientContext context_server_put;
     PutRequest replica_put_request;
     PutResponse replica_put_response;
@@ -271,7 +273,7 @@ public:
       int server_port, const std::string &key, std::mutex &value_mtx,
       uint64_t &latest_timestamp, std::string &latest_value,
       std::unordered_map<std::string, uint64_t> &server_timestamps) {
-    std::string address("0.0.0.0:" + std::to_string(server_port));
+    std::string address("127.0.0.1:" + std::to_string(server_port));
     ClientContext context_server_get;
     GetReponse get_response;
     GetRequest get_request_for_servers;
@@ -466,7 +468,7 @@ public:
 
   void InitializeServerStubs() {
     for (int port = first_port; port <= last_port; port++) {
-      std::string address("0.0.0.0:" + std::to_string(port));
+      std::string address("127.0.0.1:" + std::to_string(port));
       CH.addServer(address);
       auto channel =
           grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
@@ -547,7 +549,7 @@ public:
         server_port = i;
       }
 
-      std::string server_address("0.0.0.0:" + std::to_string(server_port));
+      std::string server_address("127.0.0.1:" + std::to_string(server_port));
 
       ClientContext handle_recovery_context;
 
@@ -610,7 +612,7 @@ void RunServer(std::string &server_address, int total_servers,
 }
 
 int main(int argc, char **argv) {
-  std::string server_address("0.0.0.0:50051");
+  std::string server_address("127.0.0.1:50051");
   int total_servers = 10;
   if (argc > 1) {
     server_address = argv[1];
