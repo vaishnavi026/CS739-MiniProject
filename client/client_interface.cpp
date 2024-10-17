@@ -201,9 +201,10 @@ int kv739_get(char *key, char *value) {
   num_tries = 0;
 
   for (int port : server_ports) {
-    server_address = "0.0.0.0:" + std::to_string(port);
+    server_address = std::string("0.0.0.0:") + std::to_string(port);
 
     if (!kvstore_map[server_address]) {
+      std::cerr << server_address << std::endl;
       std::cerr << "Client not initialized in kv739_get, call kv739_init\n";
       return -1;
     }
@@ -258,9 +259,10 @@ int kv739_put(char *key, char *value, char *old_value) {
   num_tries = 0;
 
   for (int port : server_ports) {
-    server_address = "0.0.0.0:" + std::to_string(port);
+    server_address = std::string("0.0.0.0:") + std::to_string(port);
 
     if (!kvstore_map[server_address]) {
+      std::cerr << server_address << std::endl;
       std::cerr << "Client not initialized in kv739_put, call kv739_init\n";
       return -1;
     }
