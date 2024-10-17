@@ -24,7 +24,7 @@ using kvstore::PutResponse;
 std::vector<std::string> servers;
 std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
-int connection_try_limit = 15;
+int connection_try_limit = 5;
 int restart_try_limit = 15;
 int total_servers;
 bool is_valid_value(char *value);
@@ -46,6 +46,7 @@ int kv739_init(char *config_file) {
   }
   file.close();
   total_servers = servers.size();
+  connection_try_limit = static_cast<int>(0.75 * total_servers);
   if (servers.empty()) {
     std::cerr << "No valid servers found in config file\n";
     return -1;
