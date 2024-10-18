@@ -40,9 +40,7 @@ void gen_reqs(char *server_name, perf_metrics *metrics, int num_requests,
   std::mt19937 gen(rd());
   int key_sz = 64;
 
-  std::string config_file = "server_connection.txt";
-
-  if (kv739_init((char *)config_file.data()) != 0) {
+  if (kv739_init(server_name) != 0) {
     return;
   }
 
@@ -129,8 +127,8 @@ void run_performance_test(char *server_name, int num_requests, int value_len) {
 }
 
 int main(int argc, char **argv) {
-  std::string config_file = "10.config";
-  int num_requests = 100000;
+  std::string config_file = "32.config";
+  int num_requests = 50000;
   int value_len = 1024;
   if (argc > 1) {
     num_requests = std::atoi(argv[1]);
@@ -141,7 +139,8 @@ int main(int argc, char **argv) {
       config_file = argv[3];
     }
   }
-  run_performance_test(config_file.data(), num_requests, value_len);
+  // for(int i= 0;i<12;i++)
+    run_performance_test(config_file.data(), num_requests, value_len);
 
   return 0;
 }
