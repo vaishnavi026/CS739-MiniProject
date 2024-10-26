@@ -23,6 +23,7 @@ using kvstore::DieRequest;
 using kvstore::Empty;
 using kvstore::GetReponse;
 using kvstore::GetRequest;
+using kvstore::HeartbeatMessage;
 using kvstore::KeyValuePair;
 using kvstore::KVStore;
 using kvstore::PutRequest;
@@ -78,13 +79,16 @@ public:
     this->total_servers = total_servers;
     this->virtual_servers_for_ch = virtual_servers_for_ch;
     this->first_port = 50051;
-    this->last_port = first_port + total_servers - 1;
+    this->last_port = first_port + 100 - 1;
     this->replication_factor = replication_factor;
     this->read_write_quorum = (replication_factor + 1) / 2;
     this->accept_request = true;
     if (this->total_servers == -1) {
+      InitializeServerStubs(this->last_port);
+      AnnounceStartToAll();
+      HandleFailedMachineRecovery();
     } else {
-      InitializeServerStubs();
+      InitializeServerStubs(first_port + total_servers - 1);
     }
     if (isRecoveredServer()) {
       HandleFailedMachineRecovery();
@@ -467,17 +471,17 @@ public:
   }
 
   Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
-                   Empty *response) {
+                   Empty *response) override {
     if (request->is_new()) {
       std::string server_address("127.0.0.1:" +
                                  std::to_string(request->server_port()));
-      CH.addServer(server_address)
+      CH.addServer(server_address);
     } else {
     }
     return Status::OK;
   }
 
-  void InitializeServerStubs() {
+  void InitializeServerStubs(int last_port) {
     for (int port = first_port; port <= last_port; port++) {
       std::string address("127.0.0.1:" + std::to_string(port));
       CH.addServer(address);
@@ -492,6 +496,29 @@ public:
           state == GRPC_CHANNEL_TRANSIENT_FAILURE) {
         std::cerr << "Failed to establish gRPC channel connection\n";
       }
+    }
+  }
+
+  void AnnounceStartToAll() {
+    HeartbeatMessage request;
+    Empty response;
+
+    request.set_is_new(true);
+    request.set_server_port(server_port);
+    std::vector<std::string> inactive_servers;
+
+    for (auto const &server_and_stub : kvstore_stubs_map) {
+      ClientContext context;
+      Status status =
+          server_and_stub.second->Heartbeat(&context, request, &response);
+      if (!status.ok()) {
+        CH.removeServer(server_and_stub.first);
+        inactive_servers.push_back(server_and_stub.first);
+      }
+    }
+
+    for (std::string const &address : inactive_servers) {
+      kvstore_stubs_map.erase(address);
     }
   }
 

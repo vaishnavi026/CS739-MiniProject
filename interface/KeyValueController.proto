@@ -61,7 +61,7 @@ message DieRequest {
 
 message HeartbeatMessage {
     bool is_new = 1;
-    int server_port = 2;
+    uint32 server_port = 2;
 }
 
 message Empty {
