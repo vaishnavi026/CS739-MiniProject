@@ -59,6 +59,7 @@ private:
   keyValueStore kvStore;
   ConsistentHashing CH;
   std::string server_address;
+  int server_port;
   int total_servers;
   int virtual_servers_for_ch;
   int first_port;
@@ -73,6 +74,7 @@ public:
                      int virtual_servers_for_ch, int replication_factor)
       : kvStore(server_address), CH(virtual_servers_for_ch) {
     this->server_address = server_address;
+    this->server_port = getPortNumber(server_address);
     this->total_servers = total_servers;
     this->virtual_servers_for_ch = virtual_servers_for_ch;
     this->first_port = 50051;
@@ -80,7 +82,10 @@ public:
     this->replication_factor = replication_factor;
     this->read_write_quorum = (replication_factor + 1) / 2;
     this->accept_request = true;
-    InitializeServerStubs();
+    if (this->total_servers == -1) {
+    } else {
+      InitializeServerStubs();
+    }
     if (isRecoveredServer()) {
       HandleFailedMachineRecovery();
     }
@@ -461,6 +466,17 @@ public:
     return Status::OK;
   }
 
+  Status Heartbeat(ServerContext *context, const HeartbeatMessage *request,
+                   Empty *response) {
+    if (request->is_new()) {
+      std::string server_address("127.0.0.1:" +
+                                 std::to_string(request->server_port()));
+      CH.addServer(server_address)
+    } else {
+    }
+    return Status::OK;
+  }
+
   void InitializeServerStubs() {
     for (int port = first_port; port <= last_port; port++) {
       std::string address("127.0.0.1:" + std::to_string(port));
@@ -608,10 +624,12 @@ void RunServer(std::string &server_address, int total_servers,
 
 int main(int argc, char **argv) {
   std::string server_address("127.0.0.1:50051");
-  int total_servers = 10;
+  int total_servers = -1;
   if (argc > 1) {
     server_address = argv[1];
-    total_servers = std::atoi(argv[2]);
+    if (argc == 3) {
+      total_servers = std::atoi(argv[2]);
+    }
   }
 
   RunServer(server_address, total_servers, 1);
