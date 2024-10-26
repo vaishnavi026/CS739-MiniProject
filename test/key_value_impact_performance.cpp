@@ -5,7 +5,6 @@
 #include <cstring>
 #include <ctime>
 #include <iostream>
-#include <omp.h>
 #include <random>
 #include <vector>
 
@@ -55,10 +54,11 @@ void gen_reqs(char *server_name, perf_metrics *metrics, int num_requests,
     kv739_put(const_cast<char *>(keys[i].c_str()),
               const_cast<char *>(new_value.c_str()), old_value);
   }
-// std::cout << num_requests << std::endl;
-#pragma omp parallel for num_threads(8)
+
+  // #pragma omp parallel for num_threads(8)
   for (int i = 0; i < num_requests; i++) {
     double op_type = op_distrib(gen);
+    key_index = key_dist(gen);
 
     if (op_type > 0.5) {
       std::string new_value = generate_random_string(value_sz, gen);
@@ -140,7 +140,7 @@ int main(int argc, char **argv) {
     }
   }
   // for(int i= 0;i<12;i++)
-    run_performance_test(config_file.data(), num_requests, value_len);
+  run_performance_test(config_file.data(), num_requests, value_len);
 
   return 0;
 }
