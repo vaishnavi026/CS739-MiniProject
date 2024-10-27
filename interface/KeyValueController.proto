@@ -9,6 +9,7 @@ service KVStore {
     rpc Replicate(ReplicateRequest) returns (Empty);
     rpc Die(DieRequest) returns (Empty);
     rpc Heartbeat(HeartbeatMessage) returns (Empty);
+    rpc Restart(Empty) returns (Empty);
     rpc Kill(KillRequest) returns (Empty);
     rpc Leave(LeaveRequest) returns (Empty);
 }
