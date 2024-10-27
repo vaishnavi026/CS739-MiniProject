@@ -9,6 +9,8 @@ service KVStore {
     rpc Replicate(ReplicateRequest) returns (Empty);
     rpc Die(DieRequest) returns (Empty);
     rpc Heartbeat(HeartbeatMessage) returns (Empty);
+    rpc Kill(KillRequest) returns (Empty);
+    rpc Leave(LeaveRequest) returns (Empty);
 }
 
 message PutRequest {
@@ -56,6 +58,14 @@ message ReplicateRequest {
 }
 
 message DieRequest {
+    bool clean = 1;
+}
+
+message KillRequest {
+    bool clean = 1;
+}
+
+message LeaveRequest {
     bool clean = 1;
 }
 

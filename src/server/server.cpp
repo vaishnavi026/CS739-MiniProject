@@ -21,8 +21,9 @@ using grpc::ServerContext;
 using grpc::Status;
 using kvstore::DieRequest;
 using kvstore::Empty;
-using kvstore::GetReponse;
+using kvstore::LeaveRequest;
 using kvstore::GetRequest;
+using kvstore::GetReponse;
 using kvstore::HeartbeatMessage;
 using kvstore::KeyValuePair;
 using kvstore::KVStore;
@@ -477,6 +478,10 @@ public:
                                  std::to_string(request->server_port()));
       CH.addServer(server_address);
     } else {
+      std::string server_address("127.0.0.1:" +
+                                 std::to_string(request->server_port()));
+      CH.removeServer(server_address);
+      kvstore_stubs_map.erase(server_address);
     }
     return Status::OK;
   }
@@ -612,6 +617,30 @@ public:
     }
   }
 
+  Status Leave(ServerContext *context, const LeaveRequest *request,
+             Empty *response) override {
+    int clean_code = request->clean();
+    if (clean_code == 1) {
+      HeartbeatMessage request;
+      Empty response;
+
+      request.set_is_new(false);
+      request.set_server_port(server_port);
+      for (auto const &server_and_stub : kvstore_stubs_map) {
+        ClientContext context;
+        Status status =
+            server_and_stub.second->Heartbeat(&context, request, &response);
+      }
+      std::cout << "Flushing state, server shutting down soon";
+      accept_request = false;
+      sleep(15);
+    } else {
+      std::cout << "Server killed";
+    }
+
+    exit(1);
+  }
+
   Status Die(ServerContext *context, const DieRequest *request,
              Empty *response) override {
     int clean_code = request->clean();
@@ -626,6 +655,8 @@ public:
 
     exit(1);
   }
+
+  
 };
 
 void RunServer(std::string &server_address, int total_servers,
