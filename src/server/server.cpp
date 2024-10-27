@@ -90,9 +90,10 @@ public:
     } else {
       InitializeServerStubs(first_port + total_servers - 1);
     }
-    if (isRecoveredServer()) {
-      HandleFailedMachineRecovery();
-    }
+
+    // if (isRecoveredServer()) {
+    //     HandleFailedMachineRecovery();
+    // }
   }
 
   Status Put(ServerContext *context, const PutRequest *request,
@@ -618,13 +619,21 @@ public:
     if (clean_code == 1) {
       // TODO: If primary, complete state replciation and new election.
       std::cout << "Flushing state, server shutting down soon";
-      accept_request = false;
       sleep(15);
     } else {
       std::cout << "Server killed";
     }
 
-    exit(1);
+    accept_request = false;
+
+    //exit(1);
+  }
+
+  Status Restart(ServerContext *context, const Empty *request,
+             Empty *response) override {
+    
+      HandleFailedMachineRecovery();
+      accept_request = true;
   }
 };
 
