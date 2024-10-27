@@ -295,6 +295,76 @@ int kv739_put(char *key, char *value, char *old_value) {
   return response_code;
 }
 
+int kv739_start(char * instance_name, int new_server) {
+  std::string server_address(instance_name);
+
+  auto channel =
+      grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
+  std::unique_ptr<kvstore::KVStore::Stub> temp_stub =
+      kvstore::KVStore::NewStub(channel);
+  if (!temp_stub) {
+    std::cerr << "Failed to create gRPC stub\n";
+    return -1;
+  }
+  grpc_connectivity_state state = channel->GetState(true);
+  if (state == GRPC_CHANNEL_READY) {
+    std::cerr << "Server already started\n" << std::endl;
+    return 0;
+  } else {
+    std::cout
+        << "Failed to establish gRPC channel connection which is expected\n";
+  }
+
+  // Command to restart
+  int retries = 0;
+  std::string server_launch_executable = "./kvstore_server";
+  pid_t pid = fork();
+
+  if (pid < 0) {
+    std::cerr << "Server process relaunch failed\n";
+    return -1;
+  } else if (pid == 0) {
+    FILE *devNull = fopen("/dev/null", "w");
+    if (devNull == nullptr) {
+      std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
+      exit(EXIT_FAILURE);
+    }
+
+    dup2(fileno(devNull), STDOUT_FILENO);
+    fclose(devNull);
+
+    char *args[] = {(char *)server_launch_executable.c_str(),
+                    (char *)server_address.c_str(), nullptr};
+    int execvp_status_code = execvp(args[0], args);
+
+    if (execvp_status_code == -1) {
+      std::cerr << "Terminated incorrectly\n";
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    sleep(1);
+    while (state != GRPC_CHANNEL_READY) {
+      std::cout << "Failed to establish gRPC channel connection. Retrying"
+                << std::endl;
+      state = channel->GetState(true);
+
+      if (retries >= restart_try_limit) {
+        std::cerr << "Failed to start even after " << restart_try_limit
+                  << " tries" << std::endl;
+        return -1;
+      }
+
+      sleep(2);
+
+      retries++;
+    }
+
+    kvstore_map[server_address] = std::move(temp_stub);
+    std::cout << "Start of server " << server_address << " successful"
+              << std::endl;
+  }
+}
+
 bool is_valid_key(char *key) {
   int len = strlen(key);
   if (len == 0 || len > 128) {

@@ -13,4 +13,6 @@ int kv739_die(char *server_name, int clean);
 
 int kv739_restart(char *server_name);
 
+int kv739_start(char * instance_name, int new_server);
+
 #endif
