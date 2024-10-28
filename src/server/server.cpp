@@ -21,12 +21,12 @@ using grpc::ServerContext;
 using grpc::Status;
 using kvstore::DieRequest;
 using kvstore::Empty;
-using kvstore::LeaveRequest;
-using kvstore::GetRequest;
 using kvstore::GetReponse;
+using kvstore::GetRequest;
 using kvstore::HeartbeatMessage;
 using kvstore::KeyValuePair;
 using kvstore::KVStore;
+using kvstore::LeaveRequest;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 using kvstore::ReplicateRequest;
@@ -272,6 +272,10 @@ public:
       }
       return true;
     }
+    if (!status.ok() && !status.aborted()) {
+      kvstore_stubs_map.erase(server_address);
+      CH.removeServer(server_address);
+    }
     return false;
   }
 
@@ -303,6 +307,10 @@ public:
         }
       }
       return true;
+    }
+    if (!status.ok() && !status.aborted()) {
+      kvstore_stubs_map.erase(address);
+      CH.removeServer(address);
     }
     return false;
   }
@@ -619,7 +627,7 @@ public:
   }
 
   Status Leave(ServerContext *context, const LeaveRequest *request,
-             Empty *response) override {
+               Empty *response) override {
     int clean_code = request->clean();
     if (clean_code == 1) {
       HeartbeatMessage request;
@@ -655,17 +663,15 @@ public:
 
     accept_request = false;
 
-    //exit(1);
+    // exit(1);
   }
 
   Status Restart(ServerContext *context, const Empty *request,
-             Empty *response) override {
-    
-      HandleFailedMachineRecovery();
-      accept_request = true;
-  }
+                 Empty *response) override {
 
-  
+    HandleFailedMachineRecovery();
+    accept_request = true;
+  }
 };
 
 void RunServer(std::string &server_address, int total_servers,
