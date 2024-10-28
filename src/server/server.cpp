@@ -272,7 +272,7 @@ public:
       }
       return true;
     }
-    if (!status.ok() && !status.aborted()) {
+    if (!status.ok() && status.error_code() != grpc::StatusCode::ABORTED) {
       kvstore_stubs_map.erase(server_address);
       CH.removeServer(server_address);
     }
@@ -308,7 +308,7 @@ public:
       }
       return true;
     }
-    if (!status.ok() && !status.aborted()) {
+    if (!status.ok() && status.error_code() != grpc::StatusCode::ABORTED) {
       kvstore_stubs_map.erase(address);
       CH.removeServer(address);
     }
