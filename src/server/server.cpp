@@ -664,6 +664,7 @@ public:
     accept_request = false;
 
     // exit(1);
+    return Status::OK;
   }
 
   Status Restart(ServerContext *context, const Empty *request,
@@ -671,6 +672,8 @@ public:
 
     HandleFailedMachineRecovery();
     accept_request = true;
+
+    return Status::OK;
   }
 };
 
