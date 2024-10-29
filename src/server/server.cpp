@@ -579,7 +579,7 @@ public:
     int server_port;
     std::vector<std::pair<std::string, std::string>> kv_vector;
     uint64_t last_written_timestamp;
-    std::string recovery_request_timestamp_value;
+    std::string recovery_request_timestamp_value="";
     std::string last_written_value;
     std::string latest_timestamp_key = "$";
     std::string consistent_hash_address = CH.getServer(this->server_address);
@@ -590,7 +590,14 @@ public:
     int port_number = getPortNumber(consistent_hash_address);
     int response_read =
         kvStore.read(latest_timestamp_key, recovery_request_timestamp_value);
-    last_written_timestamp = std::stoull(recovery_request_timestamp_value);
+
+    //To handle the condition of after which timestamp the values are needed for a DB. 
+    if(response_read == 1 && recovery_request_timestamp_value == ""){
+        auto lowest_time = std::chrono::system_clock::time_point::min();
+        last_written_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(lowest_time.time_since_epoch()).count();
+    }else{
+        last_written_timestamp = std::stoull(recovery_request_timestamp_value);
+    }
 
     for (int i = port_number; i < port_number + total_servers; i++) {
 
