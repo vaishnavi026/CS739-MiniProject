@@ -315,54 +315,69 @@ int kv739_start(char * instance_name, int new_server) {
         << "Failed to establish gRPC channel connection which is expected\n";
   }
 
-  // Command to restart
-  int retries = 0;
-  std::string server_launch_executable = "./kvstore_server";
-  pid_t pid = fork();
+  if (new_server) {
+    // Command to restart
+    int retries = 0;
+    std::string server_launch_executable = "./kvstore_server";
+    pid_t pid = fork();
 
-  if (pid < 0) {
-    std::cerr << "Server process relaunch failed\n";
-    return -1;
-  } else if (pid == 0) {
-    FILE *devNull = fopen("/dev/null", "w");
-    if (devNull == nullptr) {
-      std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
-      exit(EXIT_FAILURE);
-    }
-
-    dup2(fileno(devNull), STDOUT_FILENO);
-    fclose(devNull);
-
-    char *args[] = {(char *)server_launch_executable.c_str(),
-                    (char *)server_address.c_str(), nullptr};
-    int execvp_status_code = execvp(args[0], args);
-
-    if (execvp_status_code == -1) {
-      std::cerr << "Terminated incorrectly\n";
-      exit(EXIT_FAILURE);
-    }
-  } else {
-    sleep(1);
-    while (state != GRPC_CHANNEL_READY) {
-      std::cout << "Failed to establish gRPC channel connection. Retrying"
-                << std::endl;
-      state = channel->GetState(true);
-
-      if (retries >= restart_try_limit) {
-        std::cerr << "Failed to start even after " << restart_try_limit
-                  << " tries" << std::endl;
-        return -1;
+    if (pid < 0) {
+      std::cerr << "Server process relaunch failed\n";
+      return -1;
+    } else if (pid == 0) {
+      FILE *devNull = fopen("/dev/null", "w");
+      if (devNull == nullptr) {
+        std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
+        exit(EXIT_FAILURE);
       }
 
-      sleep(2);
+      dup2(fileno(devNull), STDOUT_FILENO);
+      fclose(devNull);
 
-      retries++;
+      char *args[] = {(char *)server_launch_executable.c_str(),
+                      (char *)server_address.c_str(), nullptr};
+      int execvp_status_code = execvp(args[0], args);
+
+      if (execvp_status_code == -1) {
+        std::cerr << "Terminated incorrectly\n";
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      sleep(1);
+      while (state != GRPC_CHANNEL_READY) {
+        std::cout << "Failed to establish gRPC channel connection. Retrying"
+                  << std::endl;
+        state = channel->GetState(true);
+
+        if (retries >= restart_try_limit) {
+          std::cerr << "Failed to start even after " << restart_try_limit
+                    << " tries" << std::endl;
+          return -1;
+        }
+
+        sleep(2);
+
+        retries++;
+      }
+
+      kvstore_map[server_address] = std::move(temp_stub);
+      std::cout << "Start of server " << server_address << " successful"
+                << std::endl;
     }
-
-    kvstore_map[server_address] = std::move(temp_stub);
-    std::cout << "Start of server " << server_address << " successful"
-              << std::endl;
+  } else {
+    ClientContext context;
+    Empty request;
+    Empty response;
+    Status status =
+        kvstore_map[server_address]->Restart(&context, request, &response);
+    if (!status.ok()) {
+      std::cerr << "Failed for server " << server_address << std::endl;
+      return -1;
+    }
   }
+
+  return 1;
+
 }
 
 bool is_valid_key(char *key) {
