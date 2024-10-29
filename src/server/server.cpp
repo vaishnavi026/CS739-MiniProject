@@ -626,6 +626,11 @@ public:
     }
   }
 
+  void ExitServerDelayed() {
+    sleep(3);
+    exit(1);
+  }
+
   Status Leave(ServerContext *context, const LeaveRequest *request,
                Empty *response) override {
     int clean_code = request->clean();
@@ -644,10 +649,12 @@ public:
       accept_request = false;
       sleep(15);
     } else {
+      accept_request = false;
       std::cout << "Server killed";
     }
 
-    exit(1);
+    std::thread exitThread(&KVStoreServiceImpl::ExitServerDelayed, this);
+    return Status::OK;
   }
 
   Status Die(ServerContext *context, const DieRequest *request,

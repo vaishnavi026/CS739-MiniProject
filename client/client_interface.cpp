@@ -18,6 +18,7 @@ using kvstore::Empty;
 using kvstore::GetReponse;
 using kvstore::GetRequest;
 using kvstore::KVStore;
+using kvstore::LeaveRequest;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 
@@ -105,7 +106,6 @@ int kv739_die(char *server_name, int clean) {
 }
 
 int kv739_restart(char *server_name) {
-
   std::string server_address(server_name);
   auto channel =
       grpc::CreateChannel(server_address, grpc::InsecureChannelCredentials());
@@ -295,7 +295,7 @@ int kv739_put(char *key, char *value, char *old_value) {
   return response_code;
 }
 
-int kv739_start(char * instance_name, int new_server) {
+int kv739_start(char *instance_name, int new_server) {
   std::string server_address(instance_name);
 
   auto channel =
@@ -327,7 +327,8 @@ int kv739_start(char * instance_name, int new_server) {
     } else if (pid == 0) {
       FILE *devNull = fopen("/dev/null", "w");
       if (devNull == nullptr) {
-        std::cerr << "Failed to open /dev/null: " << strerror(errno) << std::endl;
+        std::cerr << "Failed to open /dev/null: " << strerror(errno)
+                  << std::endl;
         exit(EXIT_FAILURE);
       }
 
@@ -377,7 +378,28 @@ int kv739_start(char * instance_name, int new_server) {
   }
 
   return 1;
+}
 
+int kv739_leave(char *instance_name, int clean) {
+  std::string server_address(instance_name);
+  if (!kvstore_map[server_address]) {
+    std::cerr << server_address << std::endl;
+    std::cerr << "No server instance at this address, start one before trying "
+                 "to leave\n";
+    return -1;
+  }
+
+  LeaveRequest request;
+  ClientContext context;
+  Empty response;
+  request.set_clean(clean);
+  Status status =
+      kvstore_map[server_address]->Leave(&context, request, &response);
+  kvstore_map.erase(server_address);
+  if (!status.ok()) {
+    return -1;
+  }
+  return 0;
 }
 
 bool is_valid_key(char *key) {
