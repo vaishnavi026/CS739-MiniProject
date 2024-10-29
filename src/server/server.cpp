@@ -486,11 +486,16 @@ public:
       std::string server_address("127.0.0.1:" +
                                  std::to_string(request->server_port()));
       CH.addServer(server_address);
+      auto channel = grpc::CreateChannel(server_address,
+                                         grpc::InsecureChannelCredentials());
+      kvstore_stubs_map[server_address] = kvstore::KVStore::NewStub(channel);
+      this->total_servers += 1;
     } else {
       std::string server_address("127.0.0.1:" +
                                  std::to_string(request->server_port()));
       CH.removeServer(server_address);
       kvstore_stubs_map.erase(server_address);
+      this->total_servers -= 1;
     }
     return Status::OK;
   }
