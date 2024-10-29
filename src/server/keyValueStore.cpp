@@ -149,16 +149,16 @@ int keyValueStore::batched_write(
 
 void ConsistentHashing::addServer(const std::string &server_name) {
   for (int i = 0; i < virtualServers_; ++i) {
-    std::string virtualServerName = server_name + "-" + std::to_string(i);
-    std::size_t hash = hash_fn(virtualServerName);
+    // std::string virtualServerName = server_name + "-" + std::to_string(i);
+    std::size_t hash = hash_fn(server_name);
     ring_[hash] = server_name;
   }
 }
 
 void ConsistentHashing::removeServer(const std::string &server_name) {
   for (int i = 0; i < virtualServers_; ++i) {
-    std::string virtualServerName = server_name + "-" + std::to_string(i);
-    std::size_t hash = hash_fn(virtualServerName);
+    // std::string virtualServerName = server_name + "-" + std::to_string(i);
+    std::size_t hash = hash_fn(server_name);
     ring_.erase(hash);
   }
 }
