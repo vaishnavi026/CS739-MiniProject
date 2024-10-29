@@ -30,6 +30,7 @@ int restart_try_limit = 15;
 int total_servers;
 bool is_valid_value(char *value);
 bool is_valid_key(char *key);
+int getPortNumber(const std::string &address);
 
 int kv739_init(char *config_file) {
   std::ifstream file(config_file);
@@ -328,7 +329,9 @@ int kv739_start(char *instance_name, int new_server) {
       std::cerr << "Server process relaunch failed\n";
       return -1;
     } else if (pid == 0) {
-      FILE *devNull = fopen("/dev/null", "w");
+      std::string logFile =
+          std::to_string(getPortNumber(server_address)) + ".log";
+      FILE *devNull = fopen(logFile.c_str(), "w");
       if (devNull == nullptr) {
         std::cerr << "Failed to open /dev/null: " << strerror(errno)
                   << std::endl;
@@ -435,6 +438,15 @@ bool is_valid_value(char *value) {
     }
   }
   return true;
+}
+
+int getPortNumber(const std::string &address) {
+  size_t colon_pos = address.find(':');
+  if (colon_pos == std::string::npos) {
+    throw std::invalid_argument("Invalid address format.");
+  }
+
+  return std::stoi(address.substr(colon_pos + 1));
 }
 
 int main(int argc, char **argv) { return 0; }

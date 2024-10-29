@@ -586,7 +586,7 @@ public:
       ClientContext context;
       Status status =
           server_and_stub.second->Heartbeat(&context, request, &response);
-      if (!status.ok()) {
+      if (!status.ok() && server_and_stub.first != server_address) {
         CH.removeServer(server_and_stub.first);
         inactive_servers.push_back(server_and_stub.first);
       }
