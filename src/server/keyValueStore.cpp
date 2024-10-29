@@ -171,11 +171,18 @@ std::string ConsistentHashing::getServer(const std::string &key) {
   }
 
   std::size_t hash = hash_fn(key);
-  auto it = ring_.lower_bound(hash);
+  auto it = ring_.upper_bound(hash);
 
   if (it == ring_.end()) {
     it = ring_.begin();
   }
 
   return it->second;
+}
+
+void ConsistentHashing::printServersRing() {
+  for (auto &pair : ring_) {
+    std::cout << "Hash, Server Address = " << pair.first << ", " << pair.second
+              << std::endl;
+  }
 }

@@ -20,6 +20,7 @@ public:
   void addServer(const std::string &server_name);
   void removeServer(const std::string &server_name);
   std::string getServer(const std::string &key);
+  void printServersRing();
 };
 
 class keyValueStore {

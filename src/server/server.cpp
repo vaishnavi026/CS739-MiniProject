@@ -89,6 +89,8 @@ public:
       AnnounceStartToAll();
       HandleFailedMachineRecovery();
     } else {
+      std::cout << "Started a new set of instances with count = "
+                << total_servers << std::endl;
       InitializeServerStubs(first_port + total_servers - 1);
     }
 
@@ -126,6 +128,7 @@ public:
         response->set_message(old_value);
         response->set_timestamp(timestamp);
       }
+      std::cout << "Completed write for another server" << std::endl;
       return Status::OK;
     }
     std::string hashed_server = CH.getServer(key);
@@ -142,19 +145,35 @@ public:
     std::vector<std::future<bool>> futures;
     std::unordered_set<int> ports_tried;
     int server_port;
+    std::string server_address;
+    std::string next_server = hashed_server;
+    std::cout << "Hashed server port for PUT key = " << hashed_server_port
+              << std::endl;
 
     for (int i = 0; i < read_write_quorum; i++) {
-      server_port = hashed_server_port + i;
-      if (server_port > last_port) {
-        server_port = first_port + (server_port % last_port) - 1;
-      }
+      // server_port = hashed_server_port + i;
+      // if (server_port > last_port) {
+      //   server_port = first_port + (server_port % last_port) - 1;
+      // }
 
-      futures.push_back(
-          std::async(std::launch::async, &KVStoreServiceImpl::WriteToServer,
-                     this, server_port, key, value, timestamp,
-                     std::ref(put_response_mutex), std::ref(response_values)));
+      server_address = next_server;
+      next_server = CH.getServer(next_server);
+      server_port = getPortNumber(server_address);
+      std::cout << "Trying to send a server write to " << server_port
+                << std::endl;
+
+      // server_address = std::string("127.0.0.1:") +
+      // std::to_string(server_port);
+      if (kvstore_stubs_map.contains(server_address)) {
+        futures.push_back(std::async(
+            std::launch::async, &KVStoreServiceImpl::WriteToServer, this,
+            server_port, key, value, timestamp, std::ref(put_response_mutex),
+            std::ref(response_values)));
+      }
       ports_tried.insert(server_port);
     }
+
+    std::cout << "Created all write thread futures" << std::endl;
 
     int retry_count = 0;
     int max_retry_count = static_cast<int>(0.75 * total_servers);
@@ -173,18 +192,27 @@ public:
             if (!result) {
               while (ports_tried.size() < total_servers &&
                      ports_tried.contains(server_port)) {
-                server_port += 1;
-                if (server_port > last_port) {
-                  server_port = first_port + (server_port % last_port) - 1;
-                }
+                server_address = next_server;
+                next_server = CH.getServer(next_server);
+                server_port = getPortNumber(server_address);
+                // server_port += 1;
+                // if (server_port > last_port) {
+                //   server_port = first_port + (server_port % last_port) - 1;
+                // }
               }
 
-              futures[i] = std::move(std::async(
-                  std::launch::async, &KVStoreServiceImpl::WriteToServer, this,
-                  server_port, key, value, timestamp,
-                  std::ref(put_response_mutex), std::ref(response_values)));
+              // server_address =
+              //     std::string("127.0.0.1:") + std::to_string(server_port);
+              if (kvstore_stubs_map.contains(server_address)) {
+                futures[i] = std::move(std::async(
+                    std::launch::async, &KVStoreServiceImpl::WriteToServer,
+                    this, server_port, key, value, timestamp,
+                    std::ref(put_response_mutex), std::ref(response_values)));
+                retry_count += 1;
+                std::cout << "Retrying write thread future for " << server_port
+                          << std::endl;
+              }
               ports_tried.insert(server_port);
-              retry_count += 1;
             } else {
               successful_writes += 1;
             }
@@ -192,7 +220,7 @@ public:
         }
       }
     }
-
+    std::cout << "Received successful_writes value" << std::endl;
     if (successful_writes < read_write_quorum) {
       for (auto &f : futures) {
         if (f.valid()) {
@@ -237,8 +265,10 @@ public:
       for (int p = first_port; p <= last_port; p++) {
         if (!ports_tried.contains(p)) {
           server_address = std::string("127.0.0.1:") + std::to_string(p);
-          AsyncReplicationHelper(async_request,
-                                 kvstore_stubs_map[server_address]);
+          if (kvstore_stubs_map.contains(server_address)) {
+            AsyncReplicationHelper(async_request,
+                                   kvstore_stubs_map[server_address]);
+          }
         }
       }
     }
@@ -336,19 +366,34 @@ public:
       std::vector<std::future<bool>> futures;
       std::unordered_set<int> ports_tried;
       int server_port;
-
+      std::string server_address;
+      std::string next_server = hashed_server;
+      std::cout << "Hashed server port for GET key = " << hashed_server_port
+                << std::endl;
       for (int i = 0; i < read_write_quorum; i++) {
-        server_port = hashed_server_port + i;
-        if (server_port > last_port) {
-          server_port = first_port + (server_port % last_port) - 1;
-        }
+        // server_port = hashed_server_port + i;
+        // if (server_port > last_port) {
+        //   server_port = first_port + (server_port % last_port) - 1;
+        // }
 
-        futures.push_back(std::async(
-            std::launch::async, &KVStoreServiceImpl::FetchServerData, this,
-            server_port, key, std::ref(value_mtx), std::ref(latest_timestamp),
-            std::ref(latest_value), std::ref(server_timestamps)));
+        server_address = next_server;
+        next_server = CH.getServer(next_server);
+        server_port = getPortNumber(server_address);
+        std::cout << "Trying to send a server get to " << server_port
+                  << std::endl;
+
+        // server_address =
+        //     std::string("127.0.0.1:") + std::to_string(server_port);
+        if (kvstore_stubs_map.contains(server_address)) {
+          futures.push_back(std::async(
+              std::launch::async, &KVStoreServiceImpl::FetchServerData, this,
+              server_port, key, std::ref(value_mtx), std::ref(latest_timestamp),
+              std::ref(latest_value), std::ref(server_timestamps)));
+        }
         ports_tried.insert(server_port);
       }
+
+      std::cout << "Created all get thread futures" << std::endl;
 
       int retry_count = 0;
       int max_retry_count = static_cast<int>(0.75 * total_servers);
@@ -367,19 +412,29 @@ public:
               if (!result) {
                 while (ports_tried.size() < total_servers &&
                        ports_tried.contains(server_port)) {
-                  server_port += 1;
-                  if (server_port > last_port) {
-                    server_port = first_port + (server_port % last_port) - 1;
-                  }
+                  server_address = next_server;
+                  next_server = CH.getServer(next_server);
+                  server_port = getPortNumber(server_address);
+                  // server_port += 1;
+                  // if (server_port > last_port) {
+                  //   server_port = first_port + (server_port % last_port) - 1;
+                  // }
                 }
 
-                futures[i] = std::move(std::async(
-                    std::launch::async, &KVStoreServiceImpl::FetchServerData,
-                    this, server_port, key, std::ref(value_mtx),
-                    std::ref(latest_timestamp), std::ref(latest_value),
-                    std::ref(server_timestamps)));
+                // server_address =
+                //     std::string("127.0.0.1:") + std::to_string(server_port);
+
+                if (kvstore_stubs_map.contains(server_address)) {
+                  futures[i] = std::move(std::async(
+                      std::launch::async, &KVStoreServiceImpl::FetchServerData,
+                      this, server_port, key, std::ref(value_mtx),
+                      std::ref(latest_timestamp), std::ref(latest_value),
+                      std::ref(server_timestamps)));
+                  retry_count += 1;
+                  std::cout << "Retrying get thread future for " << server_port
+                            << std::endl;
+                }
                 ports_tried.insert(server_port);
-                retry_count += 1;
               } else {
                 successful_reads += 1;
               }
@@ -387,7 +442,7 @@ public:
           }
         }
       }
-
+      std::cout << "Received successful_reads value" << std::endl;
       if (successful_reads < read_write_quorum) {
         for (auto &f : futures) {
           if (f.valid()) {
@@ -443,7 +498,7 @@ public:
         response->set_value(value);
         response->set_timestamp(timestamp);
       }
-
+      std::cout << "Completed read for another server" << std::endl;
       return Status::OK;
     }
   }
@@ -516,6 +571,7 @@ public:
         std::cerr << "Failed to establish gRPC channel connection\n";
       }
     }
+    CH.printServersRing();
   }
 
   void AnnounceStartToAll() {
@@ -539,6 +595,7 @@ public:
     for (std::string const &address : inactive_servers) {
       kvstore_stubs_map.erase(address);
     }
+    CH.printServersRing();
   }
 
   void PutServerInitKey() {
@@ -584,7 +641,7 @@ public:
     int server_port;
     std::vector<std::pair<std::string, std::string>> kv_vector;
     uint64_t last_written_timestamp;
-    std::string recovery_request_timestamp_value="";
+    std::string recovery_request_timestamp_value = "";
     std::string last_written_value;
     std::string latest_timestamp_key = "$";
     std::string consistent_hash_address = CH.getServer(this->server_address);
@@ -596,12 +653,16 @@ public:
     int response_read =
         kvStore.read(latest_timestamp_key, recovery_request_timestamp_value);
 
-    //To handle the condition of after which timestamp the values are needed for a DB. 
-    if(response_read == 1 && recovery_request_timestamp_value == ""){
-        auto lowest_time = std::chrono::system_clock::time_point::min();
-        last_written_timestamp = std::chrono::duration_cast<std::chrono::nanoseconds>(lowest_time.time_since_epoch()).count();
-    }else{
-        last_written_timestamp = std::stoull(recovery_request_timestamp_value);
+    // To handle the condition of after which timestamp the values are needed
+    // for a DB.
+    if (response_read == 1 && recovery_request_timestamp_value == "") {
+      auto lowest_time = std::chrono::system_clock::time_point::min();
+      last_written_timestamp =
+          std::chrono::duration_cast<std::chrono::nanoseconds>(
+              lowest_time.time_since_epoch())
+              .count();
+    } else {
+      last_written_timestamp = std::stoull(recovery_request_timestamp_value);
     }
 
     for (int i = port_number; i < port_number + total_servers; i++) {
