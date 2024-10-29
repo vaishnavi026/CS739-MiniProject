@@ -707,6 +707,7 @@ public:
   Status Leave(ServerContext *context, const LeaveRequest *request,
                Empty *response) override {
     int clean_code = request->clean();
+    accept_request = false;
     if (clean_code == 1) {
       HeartbeatMessage request;
       Empty response;
@@ -719,10 +720,8 @@ public:
             server_and_stub.second->Heartbeat(&context, request, &response);
       }
       std::cout << "Flushing state, server shutting down soon";
-      accept_request = false;
       sleep(15);
     } else {
-      accept_request = false;
       std::cout << "Server killed";
     }
 
