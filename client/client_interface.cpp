@@ -22,12 +22,11 @@ using kvstore::LeaveRequest;
 using kvstore::PutRequest;
 using kvstore::PutResponse;
 
-std::vector<std::string> servers;
+std::unordered_set<std::string> servers;
 std::map<std::string, std::unique_ptr<kvstore::KVStore::Stub>> kvstore_map;
 std::unique_ptr<kvstore::KVStore::Stub> kvstore_stub = nullptr;
 int connection_try_limit = 5;
 int restart_try_limit = 15;
-int total_servers;
 bool is_valid_value(char *value);
 bool is_valid_key(char *key);
 int getPortNumber(const std::string &address);
@@ -42,13 +41,12 @@ int kv739_init(char *config_file) {
   int num_servers_successful = 0;
   while (std::getline(file, server_address)) {
     if (!server_address.empty()) {
-      servers.push_back(server_address);
+      servers.insert(server_address);
       kvstore_map[server_address] = nullptr;
     }
   }
   file.close();
-  total_servers = servers.size();
-  connection_try_limit = static_cast<int>(0.75 * total_servers);
+  connection_try_limit = static_cast<int>(0.75 * servers.size());
   if (servers.empty()) {
     std::cerr << "No valid servers found in config file\n";
     return -1;
@@ -188,10 +186,10 @@ int kv739_get(char *key, char *value) {
   GetReponse response;
   int num_tries;
 
-  std::vector<int> server_ports(connection_try_limit);
+  std::vector<std::string> server_ports(connection_try_limit);
   auto gen = std::mt19937{std::random_device{}()};
-  std::ranges::sample(std::views::iota(50051, 50051 + total_servers),
-                      server_ports.begin(), connection_try_limit, gen);
+  std::ranges::sample(servers.begin(), servers.end(), server_ports.begin(),
+                      connection_try_limit, gen);
   std::ranges::shuffle(server_ports, gen);
   std::string server_address;
 
@@ -205,9 +203,7 @@ int kv739_get(char *key, char *value) {
 
   num_tries = 0;
 
-  for (int port : server_ports) {
-    server_address = std::string("127.0.0.1:") + std::to_string(port);
-
+  for (std::string &server_address : server_ports) {
     if (!kvstore_map[server_address]) {
       std::cerr << server_address << std::endl;
       std::cerr << "Client not initialized in kv739_get, call kv739_init\n";
@@ -245,10 +241,10 @@ int kv739_put(char *key, char *value, char *old_value) {
   PutResponse response;
   int num_tries;
 
-  std::vector<int> server_ports(connection_try_limit);
+  std::vector<std::string> server_ports(connection_try_limit);
   auto gen = std::mt19937{std::random_device{}()};
-  std::ranges::sample(std::views::iota(50051, 50051 + total_servers),
-                      server_ports.begin(), connection_try_limit, gen);
+  std::ranges::sample(servers.begin(), servers.end(), server_ports.begin(),
+                      connection_try_limit, gen);
   std::ranges::shuffle(server_ports, gen);
   std::string server_address;
 
@@ -264,9 +260,7 @@ int kv739_put(char *key, char *value, char *old_value) {
 
   num_tries = 0;
 
-  for (int port : server_ports) {
-    server_address = std::string("127.0.0.1:") + std::to_string(port);
-
+  for (std::string &server_address : server_ports) {
     if (!kvstore_map[server_address]) {
       std::cerr << server_address << std::endl;
       std::cerr << "Client not initialized in kv739_put, call kv739_init\n";
@@ -368,6 +362,8 @@ int kv739_start(char *instance_name, int new_server) {
       }
 
       kvstore_map[server_address] = std::move(temp_stub);
+      servers.insert(server_address);
+      connection_try_limit = static_cast<int>(0.75 * servers.size());
       std::cout << "Start of server " << server_address << " successful"
                 << std::endl;
     }
@@ -402,6 +398,8 @@ int kv739_leave(char *instance_name, int clean) {
   Status status =
       kvstore_map[server_address]->Leave(&context, request, &response);
   kvstore_map.erase(server_address);
+  servers.erase(server_address);
+  connection_try_limit = static_cast<int>(0.75 * servers.size());
   if (!status.ok()) {
     return -1;
   }
