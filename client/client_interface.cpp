@@ -101,7 +101,10 @@ int kv739_die(char *server_name, int clean) {
   ClientContext context;
   Empty response;
   request.set_clean(clean);
-  temp_stub->Die(&context, request, &response);
+  Status status = temp_stub->Die(&context, request, &response);
+  if (!status.ok()) {
+    return -1;
+  }
   return 0;
 }
 
@@ -377,7 +380,7 @@ int kv739_start(char *instance_name, int new_server) {
     }
   }
 
-  return 1;
+  return 0;
 }
 
 int kv739_leave(char *instance_name, int clean) {
