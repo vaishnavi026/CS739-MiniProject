@@ -159,12 +159,13 @@ public:
       server_address = next_server;
       next_server = CH.getServer(next_server);
       server_port = getPortNumber(server_address);
-      std::cout << "Trying to send a server write to " << server_port
-                << std::endl;
 
       // server_address = std::string("127.0.0.1:") +
       // std::to_string(server_port);
-      if (kvstore_stubs_map.contains(server_address)) {
+      if (kvstore_stubs_map.contains(server_address) &&
+          !ports_tried.contains(server_port)) {
+        std::cout << "Trying to send a server write to " << server_port
+                  << std::endl;
         futures.push_back(std::async(
             std::launch::async, &KVStoreServiceImpl::WriteToServer, this,
             server_port, key, value, timestamp, std::ref(put_response_mutex),
@@ -379,12 +380,13 @@ public:
         server_address = next_server;
         next_server = CH.getServer(next_server);
         server_port = getPortNumber(server_address);
-        std::cout << "Trying to send a server get to " << server_port
-                  << std::endl;
 
         // server_address =
         //     std::string("127.0.0.1:") + std::to_string(server_port);
-        if (kvstore_stubs_map.contains(server_address)) {
+        if (kvstore_stubs_map.contains(server_address) &&
+            !ports_tried.contains(server_port)) {
+          std::cout << "Trying to send a server get to " << server_port
+                    << std::endl;
           futures.push_back(std::async(
               std::launch::async, &KVStoreServiceImpl::FetchServerData, this,
               server_port, key, std::ref(value_mtx), std::ref(latest_timestamp),
