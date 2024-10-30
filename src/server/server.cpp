@@ -182,7 +182,7 @@ public:
 
     while (successful_writes < read_write_quorum &&
            retry_count < max_retry_count &&
-           ports_tried.size() < total_servers) {
+           ports_tried.size() < kvstore_stubs_map.size()) {
       for (int i = 0; i < futures.size(); i++) {
         std::future_status status;
         auto &f = futures[i];
@@ -191,7 +191,7 @@ public:
           if (status == std::future_status::ready) {
             bool result = f.get();
             if (!result) {
-              while (ports_tried.size() < total_servers &&
+              while (ports_tried.size() < kvstore_stubs_map.size() &&
                      ports_tried.contains(server_port)) {
                 server_address = next_server;
                 next_server = CH.getServer(next_server);
@@ -403,7 +403,7 @@ public:
 
       while (successful_reads < read_write_quorum &&
              retry_count < max_retry_count &&
-             ports_tried.size() < total_servers) {
+             ports_tried.size() < kvstore_stubs_map.size()) {
         for (int i = 0; i < futures.size(); i++) {
           std::future_status status;
           auto &f = futures[i];
@@ -412,7 +412,7 @@ public:
             if (status == std::future_status::ready) {
               bool result = f.get();
               if (!result) {
-                while (ports_tried.size() < total_servers &&
+                while (ports_tried.size() < kvstore_stubs_map.size() &&
                        ports_tried.contains(server_port)) {
                   server_address = next_server;
                   next_server = CH.getServer(next_server);
