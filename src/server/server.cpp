@@ -177,7 +177,7 @@ public:
     std::cout << "Created all write thread futures" << std::endl;
 
     int retry_count = 0;
-    int max_retry_count = static_cast<int>(0.75 * total_servers);
+    int max_retry_count = 100;
     int successful_writes = 0;
 
     while (successful_writes < read_write_quorum &&
@@ -398,7 +398,7 @@ public:
       std::cout << "Created all get thread futures" << std::endl;
 
       int retry_count = 0;
-      int max_retry_count = static_cast<int>(0.75 * total_servers);
+      int max_retry_count = 100;
       int successful_reads = 0;
 
       while (successful_reads < read_write_quorum &&
@@ -573,6 +573,7 @@ public:
         std::cerr << "Failed to establish gRPC channel connection\n";
       }
     }
+    std::cout << "Completed InitializeServerStubs" << std::endl;
     CH.printServersRing();
   }
 
@@ -597,6 +598,7 @@ public:
     for (std::string const &address : inactive_servers) {
       kvstore_stubs_map.erase(address);
     }
+    std::cout << "Completed Announce To All" << std::endl;
     CH.printServersRing();
   }
 
