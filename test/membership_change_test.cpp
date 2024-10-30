@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <memory>
 #include <random>
 #include <string>
@@ -18,6 +19,40 @@
 // #include <absl/flags/parse.h>
 
 // ABSL_FLAG(std::string, config, "config", "The path to the config file used to launch this server");
+std::vector<std::string> get_servers_from_config(std::string config_file){
+
+    std::ifstream file(config_file);  
+    std::vector<std::string> member_servers;
+
+    if (file.is_open()) {
+        std::string line;
+        while (std::getline(file, line)) {
+            member_servers.push_back(line);  // Add each line to the vector
+        }
+        file.close();
+    }
+
+    return member_servers;
+}
+
+std::vector<std::string> get_non_init_servers_in_range(std::vector<std::string> member_servers, int first_port, int last_port){
+
+    std::unordered_set<std::string> member_servers_set;
+    std::vector<std::string> non_members_not_left_servers;
+
+    for(int i=0;i<member_servers.size();i++){
+        member_servers_set.insert(member_servers[i]);
+    }
+
+    for(int port_number = first_port; port_number <= last_port; port_number++){
+        std::string server_address = std::string("127.0.0.1:") + std::to_string(port_number);
+        if(member_servers_set.find(server_address) == member_servers_set.end()){
+            non_members_not_left_servers.push_back(server_address);
+        }
+    }
+
+    return non_members_not_left_servers;
+}
 
 void run_get_requests(int key_value, std::map<int, int>& server_state) {
     // Determine the expected values
@@ -100,36 +135,43 @@ void do_membership_changes(std::string config_file,int first_port,int last_port,
     std::random_device rd;
     std::mt19937 gen(rd());
     std::vector<std::string> member_servers;
-    std::vector<std::string> not_member_not_left_servers;
+    std::vector<std::string> not_members_not_left_servers;
     // You'll need to implement a way to get all server addresses from the config file
     // For now, I'll assume you have a function to do this
     member_servers = get_servers_from_config(config_file);
+    non_members_not_left_servers = get_non_init_servers_in_range(member_servers, first_port,last_port);
 
     std::set<std::string> old_members;
+    std::set<std::string> new_members;
 
-    while(test_currently_running.load()) {
-        std::vector<std::string> running_servers = all_servers;
-        for (const auto& server : killed_servers) {
-            running_servers.erase(std::remove(running_servers.begin(), running_servers.end(), server), running_servers.end());
-        }
-
+    std::vector<std::string> running_servers = member_servers;
+    while(test_currently_running.load()) {  
         double random_value = ((double) rand()) / RAND_MAX;
-        if (random_value < 0.25 && !running_servers.empty() && killed_servers.size() < static_cast<size_t>(max_kill_servers)) {
-            std::uniform_int_distribution<> dis(0, running_servers.size() - 1);
-            int index = dis(gen);
-            std::string server_to_kill = running_servers[index];
+        if(!running_servers.empty()){
+            if (random_value <= 0.5 &&  && old_members.size() < static_cast<size_t>(max_old_members_deleted)) {
+                std::uniform_int_distribution<> dis(0, running_servers.size() - 1);
+                int index = dis(gen);
+                std::string server_to_leave = running_servers[index];
+                double random_value_clean = ((double) rand()) / RAND_MAX;
+                if(random_vlaue_clean < 0.25)
+                    int clean = 0;
+                else
+                    int clean = 1; 
 
-            if(kv739_die(const_cast<char*>(server_to_kill.c_str())) == 0) {
-                killed_servers.insert(server_to_kill);
-            }
-        } else if (!killed_servers.empty()) {
-            std::vector<std::string> killed_servers_vec(killed_servers.begin(), killed_servers.end());
-            std::uniform_int_distribution<> dis(0, killed_servers_vec.size() - 1);
-            int index = dis(gen);
-            std::string server_to_restart = killed_servers_vec[index];
+                if(kv739_leave(const_cast<char*>(server_to_leave.c_str()),clean) == 0) {
+                    old_members.insert(server_to_leave);
+                    running_servers.erase(std::remove(running_servers.begin(), running_servers.end(), server_to_leave), running_servers.end());
+                }
+            } else if (random_value > 0.5 &&  && new_members.size() < static_cast<size_t>(max_new_members_added)) {
+                std::uniform_int_distribution<> dis(0, non_members_not_left_servers.size() - 1);
+                int index = dis(gen);
+                std::string server_to_join = non_members_not_left_servers[index];
             
-            if(kv739_restart(const_cast<char*>(server_to_restart.c_str())) == 0) {
-                killed_servers.erase(server_to_restart);
+                if(kv739_start(const_cast<char*>(server_to_join.c_str()),1) == 0) {
+                    non_members_not_left_servers.erase(server_to_join);
+                    running_servers.push_back(server_to_join);
+                    new_members.insert(server_to_join);
+                }
             }
         }
 
@@ -144,6 +186,8 @@ int main(int argc, char** argv) {
     // absl::ParseCommandLine(argc, argv);
     // std::string target_config = absl::GetFlag(FLAGS_config);
     std::string target_config = argv[1];
+    int first_port = std::stoi(argv[2]);
+    int last_port = std::stoi(argv[3]);
 
     if (kv739_init(const_cast<char*>(target_config.c_str())) != 0) {
         std::cerr << "Failed to initialize KV store" << std::endl;
@@ -155,10 +199,13 @@ int main(int argc, char** argv) {
     std::atomic<bool> test_currently_running(true);
     // int quroum_reads = std::stoi(std::string(std::getenv("kv_quoroum_reads")));
     // int quorum_writes = std::stoi(std::string(std::getenv("kv_quorum_writes")));
-    int quroum_reads = std::stoi(std::string(std::getenv("kv_quoroum_reads")));
-    int quorum_writes = std::stoi(std::string(std::getenv("kv_quorum_writes")));
+    int quroum_reads = 3;
+    int quorum_writes = 3;
+    int total_servers = get_servers_from_config(target_config).size();
+    int max_old_members_deleted = std::max(total_servers - quroum_reads, total_servers - quorum_writes) - 1;
+    int max_new_member_added = (total_servers/2); // If e.g the servers we had init with is 20, max add 10 servers 
     int max_kill_servers = std::min(quroum_reads, quorum_writes) - 1;
-    std::thread membership_changes_thread(do_membership_changes, target_config, max_new_members_added, max_old_members_deleted, std::ref(test_currently_running));
+    std::thread membership_changes_thread(do_membership_changes, target_config, first_port, last_port, max_new_members_added, max_old_members_deleted, std::ref(test_currently_running));
 
     int num_simulations = 5;
     std::random_device rd; 
