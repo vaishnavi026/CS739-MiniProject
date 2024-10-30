@@ -173,9 +173,9 @@ void do_membership_changes(std::string config_file, int first_port,
     if (!running_servers.empty()) {
       if (random_value <= 0.5 &&
           old_members.size() < static_cast<size_t>(max_old_members_deleted)) {
-        std::uniform_int_distribution<> dis(0, running_servers.size() - 1);
+        std::uniform_int_distribution<> dis(0, member_servers.size() - 1);
         int index = dis(gen);
-        std::string server_to_leave = running_servers[index];
+        std::string server_to_leave = member_servers[index];
         double random_value_clean = op_distrib(gen);
         if (random_value_clean < 0.25)
           clean = 0;
@@ -185,7 +185,7 @@ void do_membership_changes(std::string config_file, int first_port,
         if (kv739_leave(const_cast<char *>(server_to_leave.c_str()), clean) ==
             0) {
           old_members.insert(server_to_leave);
-          running_servers.erase(running_servers.begin() + index);
+          member_servers.erase(member_servers.begin() + index);
         }
       } else if (random_value > 0.5 &&
                  new_members.size() <

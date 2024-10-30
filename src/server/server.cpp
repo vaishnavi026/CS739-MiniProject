@@ -704,7 +704,7 @@ public:
   }
 
   void ExitServerDelayed() {
-    sleep(3);
+    sleep(15);
     exit(1);
   }
 

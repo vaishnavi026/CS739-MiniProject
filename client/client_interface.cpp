@@ -401,7 +401,7 @@ int kv739_leave(char *instance_name, int clean) {
   servers.erase(server_address);
   connection_try_limit = static_cast<int>(0.75 * servers.size());
   if (!status.ok()) {
-    return -1;
+    return 0;
   }
   return 0;
 }
