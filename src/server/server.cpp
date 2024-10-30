@@ -87,7 +87,14 @@ public:
     if (this->total_servers == -1) {
       InitializeServerStubs(this->last_port);
       AnnounceStartToAll();
-      HandleFailedMachineRecovery();
+      
+      std::thread recovery_thread([this]() {
+          HandleFailedMachineRecovery();
+      });
+
+      recovery_thread.detach();
+      this->accept_request = false;
+
     } else {
       std::cout << "Started a new set of instances with count = "
                 << total_servers << std::endl;
@@ -701,6 +708,8 @@ public:
     if (batched_write_status == -1) {
       std::cerr << "Batched write error" << std::endl;
     }
+
+    this->accept_request = true;
   }
 
   void ExitServerDelayed() {
