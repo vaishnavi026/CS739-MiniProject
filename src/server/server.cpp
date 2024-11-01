@@ -87,14 +87,10 @@ public:
     if (this->total_servers == -1) {
       InitializeServerStubs(this->last_port);
       AnnounceStartToAll();
-      
-      std::thread recovery_thread([this]() {
-          HandleFailedMachineRecovery();
-      });
+      this->accept_request = false;
+      std::thread recovery_thread([this]() { HandleFailedMachineRecovery(); });
 
       recovery_thread.detach();
-      this->accept_request = false;
-
     } else {
       std::cout << "Started a new set of instances with count = "
                 << total_servers << std::endl;
@@ -135,7 +131,7 @@ public:
         response->set_message(old_value);
         response->set_timestamp(timestamp);
       }
-      std::cout << "Completed write for another server" << std::endl;
+      // std::cout << "Completed write for another server" << std::endl;
       return Status::OK;
     }
     std::string hashed_server = CH.getServer(key);
@@ -154,8 +150,8 @@ public:
     int server_port;
     std::string server_address;
     std::string next_server = hashed_server;
-    std::cout << "Hashed server port for PUT key = " << hashed_server_port
-              << std::endl;
+    // std::cout << "Hashed server port for PUT key = " << hashed_server_port
+    // << std::endl;
 
     for (int i = 0; i < read_write_quorum; i++) {
       // server_port = hashed_server_port + i;
@@ -171,8 +167,8 @@ public:
       // std::to_string(server_port);
       if (kvstore_stubs_map.contains(server_address) &&
           !ports_tried.contains(server_port)) {
-        std::cout << "Trying to send a server write to " << server_port
-                  << std::endl;
+        // std::cout << "Trying to send a server write to " << server_port
+        //           << std::endl;
         futures.push_back(std::async(
             std::launch::async, &KVStoreServiceImpl::WriteToServer, this,
             server_port, key, value, timestamp, std::ref(put_response_mutex),
@@ -181,7 +177,7 @@ public:
       ports_tried.insert(server_port);
     }
 
-    std::cout << "Created all write thread futures" << std::endl;
+    // std::cout << "Created all write thread futures" << std::endl;
 
     int retry_count = 0;
     int max_retry_count = 100;
@@ -217,8 +213,9 @@ public:
                     this, server_port, key, value, timestamp,
                     std::ref(put_response_mutex), std::ref(response_values)));
                 retry_count += 1;
-                std::cout << "Retrying write thread future for " << server_port
-                          << std::endl;
+                // std::cout << "Retrying write thread future for " <<
+                // server_port
+                //           << std::endl;
               }
               ports_tried.insert(server_port);
             } else {
@@ -228,7 +225,7 @@ public:
         }
       }
     }
-    std::cout << "Received successful_writes value" << std::endl;
+    // std::cout << "Received successful_writes value" << std::endl;
     if (successful_writes < read_write_quorum) {
       for (auto &f : futures) {
         if (f.valid()) {
@@ -376,8 +373,8 @@ public:
       int server_port;
       std::string server_address;
       std::string next_server = hashed_server;
-      std::cout << "Hashed server port for GET key = " << hashed_server_port
-                << std::endl;
+      // std::cout << "Hashed server port for GET key = " << hashed_server_port
+      //           << std::endl;
       for (int i = 0; i < read_write_quorum; i++) {
         // server_port = hashed_server_port + i;
         // if (server_port > last_port) {
@@ -392,8 +389,8 @@ public:
         //     std::string("127.0.0.1:") + std::to_string(server_port);
         if (kvstore_stubs_map.contains(server_address) &&
             !ports_tried.contains(server_port)) {
-          std::cout << "Trying to send a server get to " << server_port
-                    << std::endl;
+          // std::cout << "Trying to send a server get to " << server_port
+          //           << std::endl;
           futures.push_back(std::async(
               std::launch::async, &KVStoreServiceImpl::FetchServerData, this,
               server_port, key, std::ref(value_mtx), std::ref(latest_timestamp),
@@ -402,7 +399,7 @@ public:
         ports_tried.insert(server_port);
       }
 
-      std::cout << "Created all get thread futures" << std::endl;
+      // std::cout << "Created all get thread futures" << std::endl;
 
       int retry_count = 0;
       int max_retry_count = 100;
@@ -440,8 +437,9 @@ public:
                       std::ref(latest_timestamp), std::ref(latest_value),
                       std::ref(server_timestamps)));
                   retry_count += 1;
-                  std::cout << "Retrying get thread future for " << server_port
-                            << std::endl;
+                  // std::cout << "Retrying get thread future for " <<
+                  // server_port
+                  //           << std::endl;
                 }
                 ports_tried.insert(server_port);
               } else {
@@ -451,7 +449,7 @@ public:
           }
         }
       }
-      std::cout << "Received successful_reads value" << std::endl;
+      // std::cout << "Received successful_reads value" << std::endl;
       if (successful_reads < read_write_quorum) {
         for (auto &f : futures) {
           if (f.valid()) {
@@ -507,7 +505,7 @@ public:
         response->set_value(value);
         response->set_timestamp(timestamp);
       }
-      std::cout << "Completed read for another server" << std::endl;
+      // std::cout << "Completed read for another server" << std::endl;
       return Status::OK;
     }
   }
@@ -580,8 +578,8 @@ public:
         std::cerr << "Failed to establish gRPC channel connection\n";
       }
     }
-    std::cout << "Completed InitializeServerStubs" << std::endl;
-    CH.printServersRing();
+    // std::cout << "Completed InitializeServerStubs" << std::endl;
+    // CH.printServersRing();
   }
 
   void AnnounceStartToAll() {
@@ -606,7 +604,7 @@ public:
       kvstore_stubs_map.erase(address);
     }
     std::cout << "Completed Announce To All" << std::endl;
-    CH.printServersRing();
+    // CH.printServersRing();
   }
 
   void PutServerInitKey() {

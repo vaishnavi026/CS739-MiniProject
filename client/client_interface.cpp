@@ -157,8 +157,8 @@ int kv739_restart(char *server_name) {
   } else {
     sleep(1);
     while (state != GRPC_CHANNEL_READY) {
-      std::cout << "Failed to establish gRPC channel connection. Retrying"
-                << std::endl;
+      // std::cout << "Failed to establish gRPC channel connection. Retrying"
+      //           << std::endl;
       state = channel->GetState(true);
 
       if (retries >= restart_try_limit) {
@@ -346,8 +346,8 @@ int kv739_start(char *instance_name, int new_server) {
     } else {
       sleep(1);
       while (state != GRPC_CHANNEL_READY) {
-        std::cout << "Failed to establish gRPC channel connection. Retrying"
-                  << std::endl;
+        // std::cout << "Failed to establish gRPC channel connection. Retrying"
+        //           << std::endl;
         state = channel->GetState(true);
 
         if (retries >= restart_try_limit) {
